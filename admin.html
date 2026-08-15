@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>অ্যাডমিন প্যানেল | জুয়েল টেলিকম</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
+  <link rel="stylesheet" href="css/style.css?v=3.1">
+  <style>
+    .admin-card {
+      max-width: 800px;
+      margin: 30px auto;
+    }
+    .form-group-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
+    .form-field label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+    .form-field input, .form-field select, .form-field textarea {
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.92rem;
+      outline: none;
+      font-family: inherit;
+    }
+    .form-field input:focus, .form-field select:focus {
+      border-color: var(--secondary);
+    }
+    .file-upload-box {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      background: #fdfdfd;
+      cursor: pointer;
+      margin-top: 10px;
+      position: relative;
+    }
+    .file-upload-box:hover {
+      border-color: var(--secondary);
+      background: #f8fafc;
+    }
+    .file-upload-box input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .admin-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg2);
+      color: #fff;
+      padding: 12px 24px;
+      border-bottom: 3px solid var(--accent);
+    }
+    .admin-nav h2 {
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+    .admin-nav .btn-logout {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .status-badge {
+      background: #fef3c7;
+      color: #b45309;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      display: inline-block;
+    }
+    .status-badge.connected {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .records-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 0.85rem;
+    }
+    .records-table th, .records-table td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+    }
+    .records-table th {
+      background: #f1f5f9;
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .btn-delete {
+      background: #fee2e2;
+      color: var(--accent);
+      border: 1px solid #fca5a5;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .btn-delete:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    @media(max-width: 600px) {
+      .form-group-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 🔒 Password Login overlay (Admin specific) -->
+  <div id="loginScreen" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%; display: block; padding: 4px;">
+          <circle cx="50" cy="50" r="46" fill="#fff" stroke="#0f766e" stroke-width="3" />
+          <circle cx="50" cy="50" r="41" fill="none" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4 2" />
+          <text x="50" y="58" font-family="sans-serif" font-weight="900" font-size="28" text-anchor="middle">
+            <tspan fill="#dc2626">J</tspan><tspan fill="#2563eb">T</tspan>
+          </text>
+        </svg>
+      </div>
+      <h2>অ্যাডমিন প্যানেল প্রবেশদ্বার</h2>
+      <p>জুয়েল টেলিকম ডাটাবেজ প্যানেলে প্রবেশ করতে অ্যাডমিন পাসওয়ার্ড প্রদান করুন।</p>
+      <div class="login-field">
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="off">
+        <span class="login-toggle-pass" id="togglePass">👁️</span>
+      </div>
+      <button class="btn-go btn-block" id="btnLogin">🔒 প্রবেশ করুন</button>
+      <div id="loginError" class="login-error"></div>
+    </div>
+  </div>
+
+  <!-- Main Admin Dashboard App -->
+  <div id="mainApp" style="display: none;">
+    <!-- Top Nav -->
+    <div class="admin-nav">
+      <h2>🛠️ জুয়েল টেলিকম অ্যাডমিন ড্যাশবোর্ড</h2>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span id="firebaseStatus" class="status-badge">ফায়ারবেস সংযোগ বিচ্ছিন্ন (অফলাইন মোড)</span>
+        <button class="btn-logout" id="btnLogout">প্রস্থান (Logout)</button>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="panel admin-card">
+        
+        <!-- Tabs to switch between upload forms -->
+        <div class="tabs-menu">
+          <button id="tabNidForm" class="tab-btn active-tab">🆔 ভোটার / NID তথ্য আপলোড</button>
+          <button id="tabPorchaForm" class="tab-btn">📄 ই-পর্চা / খতিয়ান তথ্য আপলোড</button>
+        </div>
+
+        <!-- 1. NID Upload Form -->
+        <form id="nidUploadForm">
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>ক্রমিক নম্বর / Serial No. <span class="required">*</span></label>
+              <input type="number" id="n_sl" placeholder="যেমন: ১ বা ২" required>
+            </div>
+            <div class="form-field">
+              <label>নাগরিকের নাম / Name <span class="required">*</span></label>
+              <input type="text" id="n_name" placeholder="হিমাংশু কুমার ডালিম" required autocomplete="off">
+            </div>
+          </div>
+          
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>English Name</label>
+              <input type="text" id="n_name_en" placeholder="Himangshu Kumar Dalim" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>ভোটার / NID নম্বর <span class="required">*</span></label>
+              <input type="text" id="n_nid" placeholder="730637009757" required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>পিতার নাম <span class="required">*</span></label>
+              <input type="text" id="n_father" placeholder="কুমুদ রঞ্জন রায়" required autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>মাতার নাম</label>
+              <input type="text" id="n_mother" placeholder="শেবা রানী রায়" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>জন্ম তারিখ <span class="required">*</span></label>
+              <input type="text" id="n_dob" placeholder="যেমন: 1980-12-01" required autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>গ্রাম</label>
+              <input type="text" id="n_village" placeholder="আরাজী চাঁদখানা" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>ইউনিয়ন</label>
+              <input type="text" id="n_union" placeholder="গড়াগ্ৰাম" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>ডাকঘর</label>
+              <input type="text" id="n_post" placeholder="খামাত গড়াগ্ৰাম" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>উপজেলা</label>
+              <input type="text" id="n_upazila" placeholder="কিশোরগঞ্জ" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>জেলা</label>
+              <input type="text" id="n_district" placeholder="নীলফামারী" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>পেশা</label>
+              <input type="text" id="n_occupation" placeholder="কৃষক/দিনমজুর" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>লিঙ্গ</label>
+              <select id="n_gender">
+                <option value="পুরুষ">পুরুষ</option>
+                <option value="মহিলা">মহিলা</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- File Upload -->
+          <div class="form-field">
+            <label>NID PDF ডকুমেন্ট আপলোড</label>
+            <div class="file-upload-box">
+              <span id="nidFileLabel">📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন</span>
+              <input type="file" id="n_pdf_file" accept="application/pdf">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px; height: 48px;">
+            💾 ডেটাবেজে NID যুক্ত করুন
+          </button>
+        </form>
+
+        <!-- 2. Khatian Upload Form (Hidden by default) -->
+        <form id="porchaUploadForm" style="display: none;">
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>খতিয়ান নম্বর / Khatian No. <span class="required">*</span></label>
+              <input type="text" id="k_no" placeholder="যেমন: ২৬ বা ১১২" required autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>দাগ নম্বর / Dag No. <span class="required">*</span></label>
+              <input type="text" id="k_dag" placeholder="যেমন: ৪২ বা ৪৫" required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>মালিকের নাম / Owner Name <span class="required">*</span></label>
+              <input type="text" id="k_owner" placeholder="হিমাংশু কুমার ডালিম" required autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>পিতার নাম <span class="required">*</span></label>
+              <input type="text" id="k_father" placeholder="কুমুদ রঞ্জন রায়" required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>মৌজা / Mouza <span class="required">*</span></label>
+              <select id="k_mouza" required>
+                <option value="">-- মৌজা সিলেক্ট করুন --</option>
+                <option value="উত্তর চাঁদখানা">উত্তর চাঁদখানা</option>
+                <option value="দক্ষিণ চাঁদখানা">দক্ষিণ চাঁদখানা</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>জে. এল. নং / J.L. No.</label>
+              <input type="text" id="k_jl" placeholder="যেমন: ১২" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>জমির শ্রেণী / Land Type</label>
+              <input type="text" id="k_type" placeholder="ভিটা/ধানী জমি/ডাঙ্গা" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>জমির পরিমাণ / Area</label>
+              <input type="text" id="k_area" placeholder="০.৫২ একর (৫২ শতাংশ)" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-field">
+              <label>উপজেলা</label>
+              <input type="text" id="k_upazila" placeholder="কিশোরগঞ্জ" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label>জেলা</label>
+              <input type="text" id="k_district" placeholder="নীলফামারী" autocomplete="off">
+            </div>
+          </div>
+
+          <!-- File Upload -->
+          <div class="form-field">
+            <label>ই-পর্চা PDF ডকুমেন্ট আপলোড</label>
+            <div class="file-upload-box">
+              <span id="porchaFileLabel">📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন</span>
+              <input type="file" id="k_pdf_file" accept="application/pdf">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px; height: 48px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
+            💾 ডেটাবেজে পর্চা যুক্ত করুন
+          </button>
+        </form>
+
+      </div>
+
+      <!-- Manage Section / Show lists -->
+      <div class="panel admin-card" style="margin-top:20px;">
+        <h3 style="font-size:1.15rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom:8px; margin-bottom:15px;">📊 ডেটাবেজে সংরক্ষিত তালিকার সারসংক্ষেপ</h3>
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <button id="btnViewNidList" class="btn btn-secondary" style="font-size:0.8rem; padding:8px 12px;">🆔 NID তালিকা দেখুন</button>
+          <button id="btnViewKhatianList" class="btn btn-secondary" style="font-size:0.8rem; padding:8px 12px;">📄 খতিয়ান তালিকা দেখুন</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="records-table" id="recordsTable" style="display:none;">
+            <thead>
+              <tr id="tableHeaders">
+                <!-- Headers injected dynamically -->
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <!-- Rows injected dynamically -->
+            </tbody>
+          </table>
+          <div id="noRecordsMsg" style="text-align:center; padding:20px; color: var(--text-muted);">তালিকা দেখতে ওপরের যেকোনো একটি বোতামে ক্লিক করুন।</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Overlay -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Firebase SDK CDNs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+  <!-- Load Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/admin.js"></script>
+
+</body>
+</html>

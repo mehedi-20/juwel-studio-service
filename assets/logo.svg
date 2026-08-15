@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <circle cx="250" cy="250" r="235" fill="#ffffff" stroke="url(#borderGradient)" stroke-width="12" />
+  <defs>
+    <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="jGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#b91c1c" />
+    </linearGradient>
+    <linearGradient id="tGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <path d="M 120 220 A 130 130 0 1 1 310 320" fill="none" stroke="#dc2626" stroke-width="15" stroke-linecap="round" />
+  <polygon points="310,310 330,340 290,340" fill="#dc2626" transform="rotate(35 310 320)" />
+  <path d="M 230 160 L 230 280 A 35 35 0 0 1 160 280" fill="none" stroke="url(#jGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 200 160 L 320 160 M 260 160 L 260 320" fill="none" stroke="url(#tGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="80" y="360" width="340" height="60" rx="30" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2" />
+  <text x="250" y="402" font-family="sans-serif" font-size="34" font-weight="900" text-anchor="middle" fill="#dc2626">জুয়েল <tspan fill="#2563eb">টেলিকম</tspan></text>
+</svg>
