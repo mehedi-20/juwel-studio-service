@@ -1,314 +1,302 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow, noarchive">
-<title>তথ্য অনুসন্ধান | Information Search</title>
-<style>
-  :root{
-    --bg:#0f172a; --bg2:#1e293b; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
-    --line:#e2e8f0; --brand:#0d9488; --brand2:#0f766e; --accent:#f59e0b;
-    --ok:#16a34a; --soft:#f8fafc;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; background:var(--soft); color:var(--ink);
-    font-family:"Noto Sans Bengali","Hind Siliguri","SolaimanLipi",
-                system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    line-height:1.6;
-  }
-  header{
-    background:linear-gradient(135deg,var(--bg) 0%,var(--brand2) 100%);
-    color:#fff; padding:26px 18px 22px; text-align:center;
-  }
-  header h1{margin:0 0 6px; font-size:1.55rem; letter-spacing:.2px}
-  header p{margin:0; opacity:.85; font-size:.92rem}
-  .wrap{max-width:1080px; margin:0 auto; padding:18px}
-  .panel{
-    background:var(--card); border:1px solid var(--line); border-radius:14px;
-    padding:18px; margin-top:-28px; box-shadow:0 10px 30px rgba(15,23,42,.10);
-  }
-  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px}
-  .field label{
-    display:block; font-size:.8rem; font-weight:600; color:var(--muted);
-    margin-bottom:4px; letter-spacing:.2px;
-  }
-  .field label .req{color:#dc2626}
-  .field label .opt{color:#94a3b8; font-weight:500}
-  .field input, .field select{
-    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px;
-    font-size:.95rem; font-family:inherit; background:#fff; color:var(--ink); outline:none;
-  }
-  .field input:focus, .field select:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(13,148,136,.15)}
-  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center}
-  button{
-    font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer;
-    border-radius:9px; padding:10px 20px; border:1px solid transparent; transition:.15s;
-  }
-  .btn-go{background:var(--brand); color:#fff}
-  .btn-go:hover{background:var(--brand2)}
-  .btn-clr{background:#fff; color:var(--muted); border-color:var(--line)}
-  .btn-clr:hover{background:#f1f5f9}
-  .hint{font-size:.8rem; color:var(--muted); margin-left:auto}
-  .status{margin:18px 0 10px; font-size:.92rem; color:var(--muted)}
-  .status b{color:var(--brand2)}
-  .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px}
-  .card{
-    background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand);
-    border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(15,23,42,.05);
-  }
-  .card h3{margin:0 0 2px; font-size:1.06rem}
-  .card .sub{font-size:.82rem; color:var(--muted); margin-bottom:10px}
-  .nid{
-    display:inline-block; background:#ecfdf5; color:#065f46; border:1px dashed #6ee7b7;
-    padding:5px 11px; border-radius:8px; font-weight:700; letter-spacing:1.2px;
-    font-size:1rem; margin-bottom:10px; cursor:pointer; font-variant-numeric:tabular-nums;
-  }
-  .nid:hover{background:#d1fae5}
-  .rows{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:.88rem}
-  .rows dt{color:var(--muted); white-space:nowrap}
-  .rows dd{margin:0; font-weight:500; word-break:break-word}
-  mark{background:#fef08a; padding:0 2px; border-radius:3px}
-  .empty{
-    text-align:center; padding:46px 18px; color:var(--muted);
-    background:#fff; border:1px dashed var(--line); border-radius:12px;
-  }
-  .empty .big{font-size:2.2rem; margin-bottom:6px}
-  footer{text-align:center; padding:26px 18px 34px; color:var(--muted); font-size:.8rem}
-  .warn{
-    background:#fffbeb; border:1px solid #fcd34d; color:#92400e;
-    border-radius:10px; padding:10px 14px; font-size:.82rem; margin-top:14px;
-  }
-  .toast{
-    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(80px);
-    background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px;
-    font-size:.85rem; opacity:0; transition:.25s; pointer-events:none; z-index:9;
-  }
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
-  @media(max-width:520px){ header h1{font-size:1.25rem} .hint{width:100%; margin:4px 0 0} }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>জুয়েল টেলিকম | জুয়েল ই-সেবা পোর্টাল</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Premium Styles -->
+  <link rel="stylesheet" href="css/style.css?v=3.1">
 </head>
 <body>
 
-<header>
-  <h1>তথ্য অনুসন্ধান | Information Search</h1>
-  <p>নাম ও পিতার নাম দিয়ে অনুসন্ধান করুন / Search by Name & Father's Name</p>
-</header>
-
-<div class="wrap">
-
-  <div class="panel">
-    <div class="grid">
-      <div class="field">
-        <label>নাম / Name <span class="req">*</span></label>
-        <input id="f_name" type="text" placeholder="যেমন: রফিকুল ইসলাম" autocomplete="off">
+  <!-- Top Contact / Branding Bar -->
+  <div class="top-bar">
+    <div class="top-bar-content">
+      <div class="contact-info">
+        <div class="contact-item">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <span>সিঙ্গেরগাড়ী, পাড়েরহাট বাজার, কিশোরগঞ্জ, নীলফামারী।</span>
+        </div>
+        <div class="contact-item">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 011.94.484l-1.1 3.5a1 1 0 01-.8 1l-1.39.695a12.57 12.57 0 005.152 5.152l.695-1.39a1 1 0 011-.8l3.5 1.1a1 1 0 01.484 1.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+          <a href="tel:+8801738782255">০১৭৩৮-৭৮২২৫৫</a>
+        </div>
       </div>
-      <div class="field">
-        <label>পিতার নাম / Father's Name <span class="req">*</span></label>
-        <input id="f_father" type="text" placeholder="যেমন: আব্দুল করিম" autocomplete="off">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <a href="admin.html" class="system-tag" style="background: var(--brand); color:#fff; text-decoration:none; display:flex; align-items:center; gap:4px;">
+          ⚙️ অ্যাডমিন প্যানেল
+        </a>
+        <div class="system-tag">ব্যক্তিগত ই-সেবা পোর্টাল</div>
       </div>
-      <div class="field">
-        <label>মাতার নাম / Mother's Name <span class="opt">(ঐচ্ছিক)</span></label>
-        <input id="f_mother" type="text" placeholder="optional" autocomplete="off">
-      </div>
-      <div class="field">
-        <label>জন্ম তারিখ / Date of Birth <span class="opt">(ঐচ্ছিক)</span></label>
-        <input id="f_dob" type="text" placeholder="1990 বা 1990-03-12" autocomplete="off">
-      </div>
-      <div class="field">
-        <label>গ্রাম / Village <span class="opt">(ঐচ্ছিক)</span></label>
-        <input id="f_village" type="text" list="dl_village" placeholder="optional" autocomplete="off">
-        <datalist id="dl_village"></datalist>
-      </div>
-      <div class="field">
-        <label>NID নম্বর / NID No. <span class="opt">(ঐচ্ছিক)</span></label>
-        <input id="f_nid" type="text" inputmode="numeric" placeholder="optional" autocomplete="off">
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn-go" id="btnSearch">🔍 অনুসন্ধান করুন / Search</button>
-      <button class="btn-clr" id="btnClear">মুছুন / Clear</button>
-      <span class="hint">নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। NID দিলে সরাসরি খুঁজবে।</span>
-    </div>
-
-    <div class="warn">
-      🔒 <b>গোপনীয়তা:</b> এখানে ব্যক্তিগত তথ্য রয়েছে। লিংক যাকে-তাকে শেয়ার করবেন না।
-      This page contains personal data — please do not share the link publicly.
     </div>
   </div>
 
-  <div class="status" id="status"></div>
-  <div class="cards" id="results"></div>
-  <div class="empty" id="empty">
-    <div class="big">🔎</div>
-    <div>উপরে নাম ও পিতার নাম লিখে অনুসন্ধান করুন</div>
-    <div style="font-size:.82rem;margin-top:4px">Enter a name and father's name above to search</div>
+  <!-- Header Section -->
+  <header>
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <!-- Logo Image - falls back to beautiful inline SVG if image is missing -->
+        <img id="logoImg" src="assets/logo.jpg" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('logoSvgFallback').style.display='block';" alt="Juwel Telecom Logo" style="display:none;">
+        
+        <div id="logoSvgFallback" style="display:block;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" class="brand-logo-svg">
+            <circle cx="250" cy="250" r="235" fill="#ffffff" stroke="url(#borderGradient)" stroke-width="12" />
+            <defs>
+              <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#dc2626" />
+                <stop offset="100%" stop-color="#2563eb" />
+              </linearGradient>
+              <linearGradient id="jGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ef4444" />
+                <stop offset="100%" stop-color="#b91c1c" />
+              </linearGradient>
+              <linearGradient id="tGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3b82f6" />
+                <stop offset="100%" stop-color="#1d4ed8" />
+              </linearGradient>
+            </defs>
+            <path d="M 120 220 A 130 130 0 1 1 310 320" fill="none" stroke="#dc2626" stroke-width="15" stroke-linecap="round" />
+            <polygon points="310,310 330,340 290,340" fill="#dc2626" transform="rotate(35 310 320)" />
+            
+            <!-- Stylized J -->
+            <path d="M 230 160 L 230 280 A 35 35 0 0 1 160 280" fill="none" stroke="url(#jGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+            
+            <!-- Stylized T -->
+            <path d="M 200 160 L 320 160 M 260 160 L 260 320" fill="none" stroke="url(#tGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+            
+            <rect x="80" y="360" width="340" height="60" rx="30" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2" />
+            <text x="250" y="402" font-family="Hind Siliguri, Noto Sans Bengali, sans-serif" font-size="34" font-weight="900" text-anchor="middle" fill="#dc2626">জুয়েল <tspan fill="#2563eb">টেলিকম</tspan></text>
+          </svg>
+        </div>
+      </div>
+      <h1 class="brand-title">জুয়েল ই-সেবা পোর্টাল</h1>
+      <p class="brand-subtitle">নিরাপদ ও দ্রুত ডিজিটাল নাগরিক তথ্য অনুসন্ধান ও ফাইল ডাউনলোড সিস্টেম</p>
+    </div>
+  </header>
+
+  <!-- Main Content Wrap -->
+  <div class="wrapper">
+
+    <!-- Search Form Panel -->
+    <div class="search-panel">
+      
+      <!-- Tabs Menu to Switch between NID and E-Porcha -->
+      <div class="tabs-menu">
+        <button id="tabNid" class="tab-btn active-tab">🆔 NID কার্ড অনুসন্ধান</button>
+        <button id="tabPorcha" class="tab-btn">📄 ই-পর্চা ও খতিয়ান বই</button>
+      </div>
+
+      <!-- 1. NID Search Form -->
+      <div id="nidSearchForm">
+        <!-- Main Fields Grid -->
+        <div class="search-grid">
+          <div class="field">
+            <label for="f_name">নাম / Name <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-icon">👤</span>
+              <input id="f_name" type="text" placeholder="যেমন: হিমাংশু কুমার ডালিম" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_father">পিতার নাম / Father's Name <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-icon">👨</span>
+              <input id="f_father" type="text" placeholder="যেমন: কুমুদ রঞ্জন রায়" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_union">ইউনিয়ন / Union <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">🏛️</span>
+              <input id="f_union" type="text" placeholder="যেমন: গড়াগ্ৰাম" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Expandable Trigger -->
+        <button class="advanced-trigger" id="advancedToggle">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+          অতিরিক্ত সার্চ ফিল্টার (ঐচ্ছিক) / Advanced Filters (Optional)
+        </button>
+
+        <!-- Advanced Fields Panel -->
+        <div class="advanced-panel" id="advancedPanel">
+          <div class="field">
+            <label for="f_mother">মাতার নাম / Mother's Name <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">👩</span>
+              <input id="f_mother" type="text" placeholder="মাতার নাম লিখুন" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_dob">জন্ম তারিখ / Date of Birth <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">📅</span>
+              <input id="f_dob" type="text" placeholder="যেমন: 1980-12-01" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_village">গ্রাম / Village <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">🏡</span>
+              <input id="f_village" type="text" list="dl_village" placeholder="গ্রামের নাম লিখুন" autocomplete="off">
+              <datalist id="dl_village"></datalist>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_nid">NID নম্বর / NID No. <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">💳</span>
+              <input id="f_nid" type="text" inputmode="numeric" placeholder="NID নম্বর লিখুন" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. E-Porcha & Khatian Search Form (Hidden by default) -->
+      <div id="porchaSearchForm" style="display: none;">
+        <div class="search-grid">
+          <div class="field">
+            <label for="f_owner">মালিকের নাম / Owner Name <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-icon">👤</span>
+              <input id="f_owner" type="text" placeholder="যেমন: হিমাংশু কুমার ডালিম" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_owner_father">পিতার নাম / Father's Name <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-icon">👨</span>
+              <input id="f_owner_father" type="text" placeholder="যেমন: কুমুদ রঞ্জন রায়" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_khatian">খতিয়ান নম্বর / Khatian No. <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">📜</span>
+              <input id="f_khatian" type="text" placeholder="যেমন: ২৬ বা ১১২" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f_dag">দাগ নম্বর / Dag No. <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">🎯</span>
+              <input id="f_dag" type="text" placeholder="যেমন: ৪২ বা ৪৫" autocomplete="off">
+            </div>
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label for="f_mouza">মৌজা / Mouza <span class="optional">(ঐচ্ছিক)</span></label>
+            <div class="input-group">
+              <span class="input-icon">🗺️</span>
+              <select id="f_mouza" style="width: 100%; padding: 12px 14px 12px 40px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 0.98rem; font-family: inherit; color: var(--text-main); background: #fdfdfd; outline: none; height: 48px;">
+                <option value="">-- নির্বাচন করুন / Select --</option>
+                <option value="উত্তর চাঁদখানা">উত্তর চাঁদখানা</option>
+                <option value="দক্ষিণ চাঁদখানা">দক্ষিণ চাঁদখানা</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="search-actions">
+        <button class="btn btn-primary" id="btnSearch">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          তথ্য অনুসন্ধান করুন
+        </button>
+        <button class="btn btn-secondary" id="btnClear">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+          মুছুন / Reset
+        </button>
+        <span class="search-hint" id="searchHint">
+          নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। NID দিলে সরাসরি খুঁজবে।
+        </span>
+      </div>
+
+      <!-- Privacy Protection Note -->
+      <div class="privacy-notice">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        <div>
+          <strong>গোপনীয়তা সতর্কতা:</strong> এই পোর্টালে ব্যক্তিগত সংবেদনশীল তথ্য রয়েছে। এই পোর্টালের লিংক কোনো অননুমোদিত ব্যক্তির সাথে শেয়ার করা সম্পূর্ণরূপে নিষিদ্ধ।
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Status Message -->
+    <div class="search-status" id="searchStatus"></div>
+
+    <!-- Cards Container -->
+    <div class="results-grid" id="resultsGrid"></div>
+
+    <!-- Empty Initial / Not Found State -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🔎</div>
+      <div class="empty-title">অনুসন্ধান শুরু করুন</div>
+      <p style="font-size:0.88rem;margin-top:4px">উপরে নাম ও পিতার নাম লিখে অনুসন্ধান করুন</p>
+    </div>
+
   </div>
 
-</div>
+  <!-- Premium Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-brand">জুয়েল টেলিকম (Juwel Telecom)</div>
+      <p>সিঙ্গেরগাড়ী, পাড়েরহাট বাজার, কিশোরগঞ্জ, নীলফামারী।</p>
+      <div class="footer-contact">
+        <a href="tel:+8801738782255">📞 মোবাইল: ০১৭৩৮-৭৮২২৫৫</a>
+        <span>•</span>
+        <span>🕒 সময়: প্রতিদিন সকাল ৮:০০ - রাত ১০:০০</span>
+      </div>
+      <div class="footer-meta">
+        সর্বশেষ আপডেট: ১৫ আগস্ট ২০২৬ &nbsp;•&nbsp; <a href="admin.html" style="color: rgba(255,255,255,0.6); text-decoration: none; font-weight: bold;">🔐 অ্যাডমিন প্রবেশদ্বার</a> &nbsp;•&nbsp; কপিরাইট © ২০২৬ জুয়েল টেলিকম। সর্বস্বত্ব সংরক্ষিত।
+      </div>
+    </div>
+  </footer>
 
-<footer>
-  মোট রেকর্ড / Total records: <b>5</b> &nbsp;•&nbsp; সর্বশেষ আপডেট: 15 Aug 2026, 08:08 AM<br>
-  Built as a fully offline, single-file static site.
-</footer>
+  <!-- PDF Modal Viewer -->
+  <div class="modal" id="pdfModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">NID PDF ডকুমেন্ট ভিউয়ার</h3>
+        <button class="btn-close" onclick="closePdfViewer()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Content will be injected dynamically -->
+      </div>
+    </div>
+  </div>
 
-<div class="toast" id="toast"></div>
+  <!-- Toast Message Overlay -->
+  <div class="toast" id="toast"></div>
 
-<script>
-const DATA = [{"sl":1,"name":"মোঃ রফিকুল ইসলাম","name_en":"Md. Rafiqul Islam","nid":"1990123456789","father":"মোঃ আব্দুল করিম","mother":"রহিমা বেগম","dob":"1990-03-12","village":"চরপাড়া","post":"মাদারীপুর সদর","upazila":"মাদারীপুর","district":"মাদারীপুর","phone":"01711000001","voter_no":"5901234567","gender":"পুরুষ","occupation":"কৃষি"},{"sl":2,"name":"ফাতেমা খাতুন","name_en":"Fatema Khatun","nid":"1993987654321","father":"মোঃ সিরাজুল হক","mother":"আমেনা বেগম","dob":"1993-07-25","village":"দক্ষিণ বাজার","post":"শিবচর","upazila":"শিবচর","district":"মাদারীপুর","phone":"01811000002","voter_no":"5901234568","gender":"মহিলা","occupation":"গৃহিণী"},{"sl":3,"name":"মোঃ জসিম উদ্দিন","name_en":"Md. Jasim Uddin","nid":"1987456123789","father":"মোঃ আব্দুল করিম","mother":"সালেহা বেগম","dob":"1987-11-02","village":"চরপাড়া","post":"মাদারীপুর সদর","upazila":"মাদারীপুর","district":"মাদারীপুর","phone":"01911000003","voter_no":"5901234569","gender":"পুরুষ","occupation":"ব্যবসা"},{"sl":4,"name":"সুমাইয়া আক্তার","name_en":"Sumaiya Akter","nid":"2001112233445","father":"মোঃ নুরুল আমিন","mother":"রোকেয়া বেগম","dob":"2001-01-19","village":"উত্তর কান্দি","post":"কালকিনি","upazila":"কালকিনি","district":"মাদারীপুর","phone":"01611000004","voter_no":"5901234570","gender":"মহিলা","occupation":"ছাত্রী"},{"sl":5,"name":"মোঃ শাহআলম হাওলাদার","name_en":"Md. Shah Alam Howlader","nid":"1979334455667","father":"মৃত আঃ ছত্তার হাওলাদার","mother":"জোবেদা খাতুন","dob":"1979-05-30","village":"পূর্ব রাজৈর","post":"রাজৈর","upazila":"রাজৈর","district":"মাদারীপুর","phone":"01511000005","voter_no":"5901234571","gender":"পুরুষ","occupation":"চাকুরি"}];
+  <!-- Firebase SDK CDNs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-/* ---------- বাংলা/ইংরেজি সংখ্যা ও টেক্সট নরমালাইজেশন ---------- */
-const BN_DIGITS = {'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'};
-function norm(s){
-  if(s===null||s===undefined) return '';
-  s = String(s).toLowerCase();
-  s = s.replace(/[০-৯]/g, d => BN_DIGITS[d]);
-  // সাধারণ উপসর্গ বাদ / drop common honorific prefixes
-  s = s.replace(/\b(মোঃ|মোহাম্মদ|মুহাম্মদ|md\.?|mohammad|muhammad|mst\.?|মোছাঃ|মৃত|late)\b/g,' ');
-  s = s.replace(/[.,\-_/()\[\]:;'"]/g,' ');
-  s = s.replace(/\s+/g,' ').trim();
-  return s;
-}
-function hit(fieldVal, query){
-  const f = norm(fieldVal), q = norm(query);
-  if(!q) return true;
-  return q.split(' ').every(tok => f.includes(tok));
-}
-function esc(s){
-  return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function hl(text, query){
-  const out = esc(text ?? '—');
-  const q = norm(query);
-  if(!q) return out;
-  let html = out;
-  q.split(' ').filter(t=>t.length>1).forEach(tok=>{
-    try{
-      const re = new RegExp('('+tok.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
-      html = html.replace(re,'<mark>$1</mark>');
-    }catch(e){}
-  });
-  return html;
-}
-
-/* ---------- গ্রামের datalist ---------- */
-(function(){
-  const dl = document.getElementById('dl_village');
-  [...new Set(DATA.map(r=>r.village).filter(Boolean))].sort().forEach(v=>{
-    const o=document.createElement('option'); o.value=v; dl.appendChild(o);
-  });
-})();
-
-/* ---------- সার্চ ---------- */
-const $ = id => document.getElementById(id);
-
-function search(){
-  const q = {
-    name:    $('f_name').value.trim(),
-    father:  $('f_father').value.trim(),
-    mother:  $('f_mother').value.trim(),
-    dob:     $('f_dob').value.trim(),
-    village: $('f_village').value.trim(),
-    nid:     $('f_nid').value.trim()
-  };
-
-  const anyInput = Object.values(q).some(v=>v);
-  if(!anyInput){
-    $('status').innerHTML = '';
-    $('results').innerHTML = '';
-    $('empty').style.display = '';
-    $('empty').innerHTML = '<div class="big">🔎</div><div>অন্তত একটি ঘর পূরণ করুন</div>'+
-                           '<div style="font-size:.82rem;margin-top:4px">Please fill at least one field</div>';
-    return;
-  }
-
-  // NID দিলে সেটাই যথেষ্ট, নাহলে নাম/পিতার নাম লাগবে
-  if(!q.nid && !q.name && !q.father){
-    $('status').innerHTML = '';
-    $('results').innerHTML = '';
-    $('empty').style.display = '';
-    $('empty').innerHTML = '<div class="big">⚠️</div><div>নাম অথবা পিতার নাম লিখুন</div>'+
-                           '<div style="font-size:.82rem;margin-top:4px">Name or Father\'s name is required</div>';
-    return;
-  }
-
-  const res = DATA.filter(r =>
-    hit(r.nid, q.nid) &&
-    (hit(r.name, q.name) || hit(r.name_en, q.name)) &&
-    hit(r.father, q.father) &&
-    hit(r.mother, q.mother) &&
-    hit(r.dob, q.dob) &&
-    hit(r.village, q.village)
-  );
-
-  render(res, q);
-}
-
-function row(dt, dd, query){
-  if(dd===null||dd===undefined||dd==='') return '';
-  return `<dt>${dt}</dt><dd>${hl(dd, query)}</dd>`;
-}
-
-function render(res, q){
-  const box = $('results');
-  if(!res.length){
-    box.innerHTML = '';
-    $('status').innerHTML = '';
-    $('empty').style.display = '';
-    $('empty').innerHTML = '<div class="big">😕</div><div>কোনো তথ্য পাওয়া যায়নি</div>'+
-                           '<div style="font-size:.82rem;margin-top:4px">No matching record found — try fewer filters</div>';
-    return;
-  }
-  $('empty').style.display = 'none';
-  $('status').innerHTML = `<b>${res.length}</b> টি ফলাফল পাওয়া গেছে / result(s) found`;
-
-  box.innerHTML = res.map(r => `
-    <div class="card">
-      <h3>${hl(r.name, q.name)}</h3>
-      <div class="sub">${esc(r.name_en||'')}${r.sl?' &nbsp;•&nbsp; ক্রমিক '+esc(r.sl):''}</div>
-      ${r.nid ? `<div class="nid" title="ক্লিক করলে কপি হবে / click to copy"
-                     onclick="copyNid('${esc(r.nid)}')">🆔 ${hl(r.nid, q.nid)}</div>` : ''}
-      <dl class="rows">
-        ${row('পিতা / Father',   r.father,  q.father)}
-        ${row('মাতা / Mother',   r.mother,  q.mother)}
-        ${row('জন্ম / DOB',      r.dob,     q.dob)}
-        ${row('গ্রাম / Village', r.village, q.village)}
-        ${row('ডাকঘর / Post',    r.post,    '')}
-        ${row('উপজেলা / Upazila',r.upazila, '')}
-        ${row('জেলা / District', r.district,'')}
-        ${row('লিঙ্গ / Gender',  r.gender,  '')}
-        ${row('পেশা / Occupation', r.occupation,'')}
-        ${row('মোবাইল / Phone',  r.phone,   '')}
-        ${row('ভোটার নং / Voter No', r.voter_no,'')}
-      </dl>
-    </div>`).join('');
-}
-
-function copyNid(v){
-  navigator.clipboard?.writeText(v).then(()=>toast('NID কপি হয়েছে ✓'),()=>toast('কপি করা যায়নি'));
-}
-let tId;
-function toast(msg){
-  const t=$('toast'); t.textContent=msg; t.classList.add('show');
-  clearTimeout(tId); tId=setTimeout(()=>t.classList.remove('show'),1800);
-}
-
-$('btnSearch').addEventListener('click', search);
-$('btnClear').addEventListener('click', ()=>{
-  ['f_name','f_father','f_mother','f_dob','f_village','f_nid'].forEach(i=>$(i).value='');
-  $('results').innerHTML=''; $('status').innerHTML='';
-  $('empty').style.display='';
-  $('empty').innerHTML='<div class="big">🔎</div><div>উপরে নাম ও পিতার নাম লিখে অনুসন্ধান করুন</div>'+
-                       '<div style="font-size:.82rem;margin-top:4px">Enter a name and father\'s name above to search</div>';
-  $('f_name').focus();
-});
-document.querySelectorAll('input').forEach(inp=>{
-  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
-  inp.addEventListener('input', ()=>{ clearTimeout(inp._t); inp._t=setTimeout(search,220); });
-});
-$('f_name').focus();
-</script>
+  <!-- Scripts -->
+  <script src="js/firebase-config.js?v=3.1"></script>
+  <script src="js/data.js?v=3.1"></script>
+  <script src="js/app.js?v=3.1"></script>
+  <script>
+    // Adjust logo display dynamically in case assets/logo.jpg exists later
+    document.addEventListener("DOMContentLoaded", () => {
+      const logoImg = document.getElementById("logoImg");
+      const logoSvgFallback = document.getElementById("logoSvgFallback");
+      
+      const img = new Image();
+      img.src = "assets/logo.jpg";
+      img.onload = () => {
+        logoImg.style.display = "block";
+        logoSvgFallback.style.display = "none";
+      };
+    });
+  </script>
 </body>
 </html>
