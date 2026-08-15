@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles -->
-  <link rel="stylesheet" href="css/style.css?v=3.1">
+  <link rel="stylesheet" href="css/style.css?v=3.2">
 </head>
 <body>
 
@@ -222,7 +222,7 @@
           মুছুন / Reset
         </button>
         <span class="search-hint" id="searchHint">
-          নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। NID দিলে সরাসরি খুঁজবে।
+          যেকোনো তথ্য লিখুন — নামের যেকোনো অংশ, NID, গ্রাম ইত্যাদি।
         </span>
       </div>
 
@@ -240,6 +240,12 @@
 
     <!-- Cards Container -->
     <div class="results-grid" id="resultsGrid"></div>
+
+    <!-- PDF আর্কাইভ ফলাফল (রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট) -->
+    <div class="archive-section" id="archiveSection" style="display: none;">
+      <div class="archive-heading">📦 PDF আর্কাইভ থেকে উদ্ধারকৃত ফলাফল</div>
+      <div class="results-grid" id="archiveGrid"></div>
+    </div>
 
     <!-- Empty Initial / Not Found State -->
     <div class="empty-state" id="emptyState">
@@ -287,9 +293,10 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
   <!-- Scripts -->
-  <script src="js/firebase-config.js?v=3.1"></script>
-  <script src="js/data.js?v=3.1"></script>
-  <script src="js/app.js?v=3.1"></script>
+  <script src="js/firebase-config.js?v=3.2"></script>
+  <script src="js/data.js?v=3.2"></script>
+  <script src="js/pdf-text-index.js?v=3.2"></script>
+  <script src="js/app.js?v=3.2"></script>
   <script>
     // Adjust logo display dynamically in case assets/logo.svg is missing
     document.addEventListener("DOMContentLoaded", () => {

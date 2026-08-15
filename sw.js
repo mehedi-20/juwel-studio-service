@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juwel-telecom-esheba-v2';
+const CACHE_NAME = 'juwel-telecom-esheba-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
   './js/app.js',
   './js/admin.js',
   './js/firebase-config.js',
+  './js/pdf-text-index.js',
   './assets/logo.svg',
   './manifest.json'
 ];

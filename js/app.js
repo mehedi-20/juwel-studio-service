@@ -4,6 +4,19 @@
 // (online mode), not only the static DATA / KHATIAN_DATA arrays.
 let lastNidResults = {};
 let lastKhatianResults = {};
+let lastArchiveResults = [];
+
+// PDF টেক্সট ইনডেক্স হেল্পার (js/pdf-text-index.js থেকে লোড হয়)
+const pdfTextOf = (pdfPath) =>
+  (typeof PDF_TEXT_BY_PDF !== 'undefined' && PDF_TEXT_BY_PDF[pdfPath]) || '';
+
+// যে PDF গুলোর কোনো রেকর্ড ডেটাবেজে নেই — সেগুলো "আর্কাইভ"
+const getArchiveEntries = () => {
+  if (typeof PDF_TEXT_INDEX === 'undefined') return [];
+  return PDF_TEXT_INDEX.filter(e =>
+    !DATA.some(r => r.pdf === e.pdf) && !KHATIAN_DATA.some(r => r.pdf === e.pdf)
+  );
+};
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -65,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (nidSearchForm) nidSearchForm.style.display = 'block';
       if (porchaSearchForm) porchaSearchForm.style.display = 'none';
       if (searchHint) {
-        searchHint.innerHTML = `নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। NID দিলে সরাসরি খুঁজবে।`;
+        searchHint.innerHTML = `যেকোনো তথ্য লিখুন — নামের যেকোনো অংশ, NID, গ্রাম ইত্যাদি।`;
       }
       resetResults();
       const fName = document.getElementById('f_name');
@@ -80,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (porchaSearchForm) porchaSearchForm.style.display = 'block';
       if (nidSearchForm) nidSearchForm.style.display = 'none';
       if (searchHint) {
-        searchHint.innerHTML = `মালিকের নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। খতিয়ান বা দাগ নম্বর দিলে সরাসরি খুঁজবে।`;
+        searchHint.innerHTML = `মালিকের নামের যেকোনো অংশ, খতিয়ান/দাগ নম্বর বা মৌজা লিখুন।`;
       }
       resetResults();
       const fOwner = document.getElementById('f_owner');
@@ -88,9 +101,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // PDF আর্কাইভ সেকশন (রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট ফলাফল)
+  const archiveSection = document.getElementById('archiveSection');
+  const archiveGrid = document.getElementById('archiveGrid');
+
+  const hideArchiveSection = () => {
+    lastArchiveResults = [];
+    if (archiveSection) archiveSection.style.display = 'none';
+    if (archiveGrid) archiveGrid.innerHTML = '';
+  };
+
   const resetResults = () => {
     if (resultsGrid) resultsGrid.innerHTML = '';
     if (statusContainer) statusContainer.innerHTML = '';
+    hideArchiveSection();
     if (emptyState) {
       emptyState.style.display = 'block';
       if (currentTab === 'nid') {
@@ -288,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hasAnyInput) {
       statusContainer.innerHTML = '';
       resultsGrid.innerHTML = '';
+      hideArchiveSection();
       emptyState.style.display = 'block';
       emptyState.innerHTML = `
         <div class="empty-icon">🔎</div>
@@ -297,17 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!q.nid && !q.name && !q.father) {
-      statusContainer.innerHTML = '';
-      resultsGrid.innerHTML = '';
-      emptyState.style.display = 'block';
-      emptyState.innerHTML = `
-        <div class="empty-icon">⚠️</div>
-        <div class="empty-title">ইনপুট প্রয়োজন</div>
-        <p style="font-size:0.88rem;margin-top:4px">নাম অথবা পিতার নাম অবশ্যই লিখুন (NID দিলে এটি ছাড়াই খোঁজা যাবে)</p>
-      `;
-      return;
-    }
 
     let searchPool = [];
 
@@ -333,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Filter data matching all criteria
-    const matchedRecords = searchPool.filter(r => 
+    let matchedRecords = searchPool.filter(r => 
       matches(r.nid, q.nid) &&
       (matches(r.name, q.name) || matches(r.name_en, q.name)) &&
       matches(r.father, q.father) &&
@@ -343,7 +357,51 @@ document.addEventListener('DOMContentLoaded', () => {
       matches(r.village, q.village)
     );
 
-    renderNidResults(matchedRecords, q);
+    // স্ট্রিক্ট খোঁজায় কিছু না মিললে — রেকর্ডের যেকোনো ফিল্ড + PDF টেক্সটে খোঁজা
+    if (matchedRecords.length === 0) {
+      const tokens = Object.values(q)
+        .flatMap(v => normalize(v).split(' '))
+        .filter(t => t.length > 1);
+      matchedRecords = searchPool.filter(r => {
+        const haystack = normalize([
+          r.name, r.name_en, r.father, r.mother, r.village, r.union, r.post,
+          r.upazila, r.district, r.occupation, r.gender, r.nid, r.voter_no, r.dob,
+          pdfTextOf(r.pdf)
+        ].join(' '));
+        return tokens.every(t => haystack.includes(t));
+      });
+    }
+
+    // PDF আর্কাইভে খোঁজা (রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট)
+    const archiveTokens = Object.values(q)
+      .flatMap(v => normalize(v).split(' '))
+      .filter(t => t.length > 1);
+    const archiveHits = archiveTokens.length
+      ? getArchiveEntries().filter(e => archiveTokens.every(t => normalize(e.text).includes(t)))
+      : [];
+
+    if (matchedRecords.length === 0 && archiveHits.length === 0) {
+      resultsGrid.innerHTML = '';
+      hideArchiveSection();
+      statusContainer.innerHTML = '';
+      emptyState.style.display = 'block';
+      emptyState.innerHTML = `
+        <div class="empty-icon">😕</div>
+        <div class="empty-title">কোনো তথ্য পাওয়া যায়নি</div>
+        <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে বানান যাচাই করুন অথবা অতিরিক্ত ফিল্টারগুলো কমিয়ে পুনরায় চেষ্টা করুন।</p>
+      `;
+      return;
+    }
+
+    emptyState.style.display = 'none';
+    resultsGrid.innerHTML = '';
+    if (matchedRecords.length > 0) renderNidResults(matchedRecords, q);
+    renderArchiveSection(archiveHits);
+
+    const parts = [];
+    if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি তথ্য ডেটাবেজে পাওয়া গেছে`);
+    if (archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি পিডিএফ আর্কাইভে পাওয়া গেছে`);
+    statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
 
   // E-Porcha & Khatian Search Logic (Supports real-time Firestore sync!)
@@ -361,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hasAnyInput) {
       statusContainer.innerHTML = '';
       resultsGrid.innerHTML = '';
+      hideArchiveSection();
       emptyState.style.display = 'block';
       emptyState.innerHTML = `
         <div class="empty-icon">📖</div>
@@ -370,17 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!q.khatian && !q.dag && !q.owner && !q.owner_father) {
-      statusContainer.innerHTML = '';
-      resultsGrid.innerHTML = '';
-      emptyState.style.display = 'block';
-      emptyState.innerHTML = `
-        <div class="empty-icon">⚠️</div>
-        <div class="empty-title">ইনপুট প্রয়োজন</div>
-        <p style="font-size:0.88rem;margin-top:4px">মালিকের নাম অথবা পিতার নাম অবশ্যই লিখুন</p>
-      `;
-      return;
-    }
 
     let searchPool = [];
 
@@ -404,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
       searchPool = [...KHATIAN_DATA];
     }
 
-    const matchedRecords = searchPool.filter(r => 
+    let matchedRecords = searchPool.filter(r => 
       matches(r.owner, q.owner) &&
       matches(r.father, q.owner_father) &&
       matches(r.khatian_no, q.khatian) &&
@@ -412,6 +460,22 @@ document.addEventListener('DOMContentLoaded', () => {
       matches(r.mouza, q.mouza)
     );
 
+    // স্ট্রিক্ট খোঁজায় কিছু না মিললে — যেকোনো ফিল্ড + PDF টেক্সটে খোঁজা
+    if (matchedRecords.length === 0) {
+      const tokens = Object.values(q)
+        .flatMap(v => normalize(v).split(' '))
+        .filter(t => t.length > 1);
+      matchedRecords = searchPool.filter(r => {
+        const haystack = normalize([
+          r.owner, r.father, r.khatian_no, r.dag_no, r.mouza, r.jl_no,
+          r.upazila, r.district, r.division, r.land_type, r.area,
+          pdfTextOf(r.pdf)
+        ].join(' '));
+        return tokens.every(t => haystack.includes(t));
+      });
+    }
+
+    hideArchiveSection();
     renderPorchaResults(matchedRecords, q);
   }
 
@@ -595,6 +659,54 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       `;
     }).join('');
+  }
+
+  // PDF আর্কাইভ সেকশন রেন্ডার (রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট)
+  function renderArchiveSection(hits) {
+    if (!archiveSection || !archiveGrid) return;
+    if (!hits || hits.length === 0) {
+      hideArchiveSection();
+      return;
+    }
+    lastArchiveResults = hits;
+    archiveSection.style.display = 'block';
+    archiveGrid.innerHTML = hits.map((e, i) => `
+      <div class="premium-card" style="border-left: 4px solid #7c3aed;">
+        <div class="card-header-banner" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
+          <h3 class="card-title-main" title="${esc(e.name_bn || e.name || '')}">${esc(e.name_bn || e.name || 'অজানা নাম')}</h3>
+          <div class="card-badge" style="background: #6d28d9;">📦 আর্কাইভ</div>
+        </div>
+        <div class="card-body">
+          <div class="card-subtitle">
+            <span>${esc(e.name || '')}</span>
+            <span>PDF থেকে উদ্ধারকৃত</span>
+          </div>
+          ${e.nid ? `
+          <div class="card-nid-container" title="ক্লিক করে কপি করুন">
+            <div style="display:flex; flex-direction:column">
+              <span style="font-size:0.68rem; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">VOTER NO / NID</span>
+              <span class="card-nid-number">${esc(e.nid)}</span>
+            </div>
+            <button class="btn-copy" onclick="copyToClipboard('${esc(e.nid)}')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>
+              কপি
+            </button>
+          </div>
+          ` : ''}
+          <div style="font-size:0.8rem; color:var(--text-muted); background:#f8fafc; border:1px dashed var(--border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
+            <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট:</b> ${esc(e.text)}
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-primary btn-view-pdf" onclick="openArchiveViewer('${i}')">
+            👁️ টেক্সট দেখুন
+          </button>
+          <button class="btn btn-download-pdf" onclick="downloadArchivePdf('${esc(e.pdf)}')">
+            ⬇️ PDF ডাউনলোড
+          </button>
+        </div>
+      </div>
+    `).join('');
   }
 
   // Low-level clipboard writer with legacy fallback for insecure contexts
@@ -874,6 +986,54 @@ function downloadPdf(id, pdfPath, isKhatian = false) {
   anchor.click();
   document.body.removeChild(anchor);
 }
+
+// PDF আর্কাইভ ভিউয়ার — রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট দেখায়
+window.openArchiveViewer = (index) => {
+  const modal = document.getElementById('pdfModal');
+  const modalBody = document.getElementById('modalBody');
+  const modalTitle = document.getElementById('modalTitle');
+  if (!modal || !modalBody) return;
+
+  const entry = lastArchiveResults[Number(index)];
+  if (!entry) return;
+
+  modalTitle.textContent = '📦 PDF আর্কাইভ — উদ্ধারকৃত টেক্সট';
+  modalBody.innerHTML = `
+    <div class="pdf-fallback-container">
+      <div class="pdf-fallback-card">
+        <div class="pdf-fallback-icon" style="color: #7c3aed;">📦</div>
+        <h4 class="pdf-fallback-title">${esc(entry.name_bn || entry.name || 'অজানা')}</h4>
+        <p class="pdf-fallback-desc">
+          এই তথ্যটি শুধুমাত্র PDF ফাইলে ছিল (ডেটাবেজে রেকর্ড নেই)। PDF থেকে টেক্সট বের করে নিচে দেখানো হলো।
+        </p>
+        <div class="pdf-mini-certificate" style="border-color: #7c3aed;">
+          <div class="cert-header" style="border-bottom-color: #7c3aed;">PDF থেকে উদ্ধারকৃত টেক্সট</div>
+          ${entry.nid ? `<div class="cert-row"><span class="cert-label">NID:</span><span class="cert-value" style="font-family:monospace;">${esc(entry.nid)}</span></div>` : ''}
+          <div class="cert-row"><span class="cert-label">নাম:</span><span class="cert-value">${esc(entry.name || '—')}</span></div>
+          <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
+            <span class="cert-value" style="white-space: pre-wrap; font-weight: 500; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px;">${esc(entry.text)}</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="downloadArchivePdf('${esc(entry.pdf)}')" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%) !important;">
+          ⬇️ অফিসিয়াল PDF ডাউনলোড করুন
+        </button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+};
+
+// PDF আর্কাইভ ফাইল ডাউনলোড
+window.downloadArchivePdf = (pdfPath) => {
+  const anchor = document.createElement('a');
+  anchor.href = pdfPath || 'pdfs/fallback.pdf';
+  anchor.download = (pdfPath || '').split('/').pop() || 'document.pdf';
+  anchor.target = '_blank';
+  anchor.rel = 'noopener';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+};
 
 // Helper to escape HTML safely in global context
 function esc(s) {

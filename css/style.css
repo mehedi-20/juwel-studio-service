@@ -785,6 +785,24 @@ mark {
   color: #fff !important;
 }
 
+/* PDF Archive Section (records recovered from PDFs without a DB entry) */
+.archive-section {
+  margin-top: 30px;
+  border-top: 2px dashed var(--border);
+  padding-top: 18px;
+}
+
+.archive-heading {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border-left: 4px solid #7c3aed;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
 /* Empty State Styling */
 .empty-state, .empty {
   text-align: center;
