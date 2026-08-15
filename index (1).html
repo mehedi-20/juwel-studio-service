@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>তথ্য অনুসন্ধান | Information Search</title>
+<style>
+  :root{
+    --bg:#0f172a; --bg2:#1e293b; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --brand:#0d9488; --brand2:#0f766e; --accent:#f59e0b;
+    --ok:#16a34a; --soft:#f8fafc;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--soft); color:var(--ink);
+    font-family:"Noto Sans Bengali","Hind Siliguri","SolaimanLipi",
+                system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    line-height:1.6;
+  }
+  header{
+    background:linear-gradient(135deg,var(--bg) 0%,var(--brand2) 100%);
+    color:#fff; padding:26px 18px 22px; text-align:center;
+  }
+  header h1{margin:0 0 6px; font-size:1.55rem; letter-spacing:.2px}
+  header p{margin:0; opacity:.85; font-size:.92rem}
+  .wrap{max-width:1080px; margin:0 auto; padding:18px}
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px; margin-top:-28px; box-shadow:0 10px 30px rgba(15,23,42,.10);
+  }
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px}
+  .field label{
+    display:block; font-size:.8rem; font-weight:600; color:var(--muted);
+    margin-bottom:4px; letter-spacing:.2px;
+  }
+  .field label .req{color:#dc2626}
+  .field label .opt{color:#94a3b8; font-weight:500}
+  .field input, .field select{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px;
+    font-size:.95rem; font-family:inherit; background:#fff; color:var(--ink); outline:none;
+  }
+  .field input:focus, .field select:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center}
+  button{
+    font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer;
+    border-radius:9px; padding:10px 20px; border:1px solid transparent; transition:.15s;
+  }
+  .btn-go{background:var(--brand); color:#fff}
+  .btn-go:hover{background:var(--brand2)}
+  .btn-clr{background:#fff; color:var(--muted); border-color:var(--line)}
+  .btn-clr:hover{background:#f1f5f9}
+  .hint{font-size:.8rem; color:var(--muted); margin-left:auto}
+  .status{margin:18px 0 10px; font-size:.92rem; color:var(--muted)}
+  .status b{color:var(--brand2)}
+  .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px}
+  .card{
+    background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand);
+    border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(15,23,42,.05);
+  }
+  .card h3{margin:0 0 2px; font-size:1.06rem}
+  .card .sub{font-size:.82rem; color:var(--muted); margin-bottom:10px}
+  .nid{
+    display:inline-block; background:#ecfdf5; color:#065f46; border:1px dashed #6ee7b7;
+    padding:5px 11px; border-radius:8px; font-weight:700; letter-spacing:1.2px;
+    font-size:1rem; margin-bottom:10px; cursor:pointer; font-variant-numeric:tabular-nums;
+  }
+  .nid:hover{background:#d1fae5}
+  .rows{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:.88rem}
+  .rows dt{color:var(--muted); white-space:nowrap}
+  .rows dd{margin:0; font-weight:500; word-break:break-word}
+  mark{background:#fef08a; padding:0 2px; border-radius:3px}
+  .empty{
+    text-align:center; padding:46px 18px; color:var(--muted);
+    background:#fff; border:1px dashed var(--line); border-radius:12px;
+  }
+  .empty .big{font-size:2.2rem; margin-bottom:6px}
+  footer{text-align:center; padding:26px 18px 34px; color:var(--muted); font-size:.8rem}
+  .warn{
+    background:#fffbeb; border:1px solid #fcd34d; color:#92400e;
+    border-radius:10px; padding:10px 14px; font-size:.82rem; margin-top:14px;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(80px);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px;
+    font-size:.85rem; opacity:0; transition:.25s; pointer-events:none; z-index:9;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  @media(max-width:520px){ header h1{font-size:1.25rem} .hint{width:100%; margin:4px 0 0} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>তথ্য অনুসন্ধান | Information Search</h1>
+  <p>নাম ও পিতার নাম দিয়ে অনুসন্ধান করুন / Search by Name & Father's Name</p>
+</header>
+
+<div class="wrap">
+
+  <div class="panel">
+    <div class="grid">
+      <div class="field">
+        <label>নাম / Name <span class="req">*</span></label>
+        <input id="f_name" type="text" placeholder="যেমন: রফিকুল ইসলাম" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>পিতার নাম / Father's Name <span class="req">*</span></label>
+        <input id="f_father" type="text" placeholder="যেমন: আব্দুল করিম" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>মাতার নাম / Mother's Name <span class="opt">(ঐচ্ছিক)</span></label>
+        <input id="f_mother" type="text" placeholder="optional" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>জন্ম তারিখ / Date of Birth <span class="opt">(ঐচ্ছিক)</span></label>
+        <input id="f_dob" type="text" placeholder="1990 বা 1990-03-12" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>গ্রাম / Village <span class="opt">(ঐচ্ছিক)</span></label>
+        <input id="f_village" type="text" list="dl_village" placeholder="optional" autocomplete="off">
+        <datalist id="dl_village"></datalist>
+      </div>
+      <div class="field">
+        <label>NID নম্বর / NID No. <span class="opt">(ঐচ্ছিক)</span></label>
+        <input id="f_nid" type="text" inputmode="numeric" placeholder="optional" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-go" id="btnSearch">🔍 অনুসন্ধান করুন / Search</button>
+      <button class="btn-clr" id="btnClear">মুছুন / Clear</button>
+      <span class="hint">নাম <b>অথবা</b> পিতার নাম — অন্তত একটি লিখুন। NID দিলে সরাসরি খুঁজবে।</span>
+    </div>
+
+    <div class="warn">
+      🔒 <b>গোপনীয়তা:</b> এখানে ব্যক্তিগত তথ্য রয়েছে। লিংক যাকে-তাকে শেয়ার করবেন না।
+      This page contains personal data — please do not share the link publicly.
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="cards" id="results"></div>
+  <div class="empty" id="empty">
+    <div class="big">🔎</div>
+    <div>উপরে নাম ও পিতার নাম লিখে অনুসন্ধান করুন</div>
+    <div style="font-size:.82rem;margin-top:4px">Enter a name and father's name above to search</div>
+  </div>
+
+</div>
+
+<footer>
+  মোট রেকর্ড / Total records: <b>5</b> &nbsp;•&nbsp; সর্বশেষ আপডেট: 15 Aug 2026, 08:08 AM<br>
+  Built as a fully offline, single-file static site.
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = [{"sl":1,"name":"মোঃ রফিকুল ইসলাম","name_en":"Md. Rafiqul Islam","nid":"1990123456789","father":"মোঃ আব্দুল করিম","mother":"রহিমা বেগম","dob":"1990-03-12","village":"চরপাড়া","post":"মাদারীপুর সদর","upazila":"মাদারীপুর","district":"মাদারীপুর","phone":"01711000001","voter_no":"5901234567","gender":"পুরুষ","occupation":"কৃষি"},{"sl":2,"name":"ফাতেমা খাতুন","name_en":"Fatema Khatun","nid":"1993987654321","father":"মোঃ সিরাজুল হক","mother":"আমেনা বেগম","dob":"1993-07-25","village":"দক্ষিণ বাজার","post":"শিবচর","upazila":"শিবচর","district":"মাদারীপুর","phone":"01811000002","voter_no":"5901234568","gender":"মহিলা","occupation":"গৃহিণী"},{"sl":3,"name":"মোঃ জসিম উদ্দিন","name_en":"Md. Jasim Uddin","nid":"1987456123789","father":"মোঃ আব্দুল করিম","mother":"সালেহা বেগম","dob":"1987-11-02","village":"চরপাড়া","post":"মাদারীপুর সদর","upazila":"মাদারীপুর","district":"মাদারীপুর","phone":"01911000003","voter_no":"5901234569","gender":"পুরুষ","occupation":"ব্যবসা"},{"sl":4,"name":"সুমাইয়া আক্তার","name_en":"Sumaiya Akter","nid":"2001112233445","father":"মোঃ নুরুল আমিন","mother":"রোকেয়া বেগম","dob":"2001-01-19","village":"উত্তর কান্দি","post":"কালকিনি","upazila":"কালকিনি","district":"মাদারীপুর","phone":"01611000004","voter_no":"5901234570","gender":"মহিলা","occupation":"ছাত্রী"},{"sl":5,"name":"মোঃ শাহআলম হাওলাদার","name_en":"Md. Shah Alam Howlader","nid":"1979334455667","father":"মৃত আঃ ছত্তার হাওলাদার","mother":"জোবেদা খাতুন","dob":"1979-05-30","village":"পূর্ব রাজৈর","post":"রাজৈর","upazila":"রাজৈর","district":"মাদারীপুর","phone":"01511000005","voter_no":"5901234571","gender":"পুরুষ","occupation":"চাকুরি"}];
+
+/* ---------- বাংলা/ইংরেজি সংখ্যা ও টেক্সট নরমালাইজেশন ---------- */
+const BN_DIGITS = {'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'};
+function norm(s){
+  if(s===null||s===undefined) return '';
+  s = String(s).toLowerCase();
+  s = s.replace(/[০-৯]/g, d => BN_DIGITS[d]);
+  // সাধারণ উপসর্গ বাদ / drop common honorific prefixes
+  s = s.replace(/\b(মোঃ|মোহাম্মদ|মুহাম্মদ|md\.?|mohammad|muhammad|mst\.?|মোছাঃ|মৃত|late)\b/g,' ');
+  s = s.replace(/[.,\-_/()\[\]:;'"]/g,' ');
+  s = s.replace(/\s+/g,' ').trim();
+  return s;
+}
+function hit(fieldVal, query){
+  const f = norm(fieldVal), q = norm(query);
+  if(!q) return true;
+  return q.split(' ').every(tok => f.includes(tok));
+}
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function hl(text, query){
+  const out = esc(text ?? '—');
+  const q = norm(query);
+  if(!q) return out;
+  let html = out;
+  q.split(' ').filter(t=>t.length>1).forEach(tok=>{
+    try{
+      const re = new RegExp('('+tok.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+      html = html.replace(re,'<mark>$1</mark>');
+    }catch(e){}
+  });
+  return html;
+}
+
+/* ---------- গ্রামের datalist ---------- */
+(function(){
+  const dl = document.getElementById('dl_village');
+  [...new Set(DATA.map(r=>r.village).filter(Boolean))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=v; dl.appendChild(o);
+  });
+})();
+
+/* ---------- সার্চ ---------- */
+const $ = id => document.getElementById(id);
+
+function search(){
+  const q = {
+    name:    $('f_name').value.trim(),
+    father:  $('f_father').value.trim(),
+    mother:  $('f_mother').value.trim(),
+    dob:     $('f_dob').value.trim(),
+    village: $('f_village').value.trim(),
+    nid:     $('f_nid').value.trim()
+  };
+
+  const anyInput = Object.values(q).some(v=>v);
+  if(!anyInput){
+    $('status').innerHTML = '';
+    $('results').innerHTML = '';
+    $('empty').style.display = '';
+    $('empty').innerHTML = '<div class="big">🔎</div><div>অন্তত একটি ঘর পূরণ করুন</div>'+
+                           '<div style="font-size:.82rem;margin-top:4px">Please fill at least one field</div>';
+    return;
+  }
+
+  // NID দিলে সেটাই যথেষ্ট, নাহলে নাম/পিতার নাম লাগবে
+  if(!q.nid && !q.name && !q.father){
+    $('status').innerHTML = '';
+    $('results').innerHTML = '';
+    $('empty').style.display = '';
+    $('empty').innerHTML = '<div class="big">⚠️</div><div>নাম অথবা পিতার নাম লিখুন</div>'+
+                           '<div style="font-size:.82rem;margin-top:4px">Name or Father\'s name is required</div>';
+    return;
+  }
+
+  const res = DATA.filter(r =>
+    hit(r.nid, q.nid) &&
+    (hit(r.name, q.name) || hit(r.name_en, q.name)) &&
+    hit(r.father, q.father) &&
+    hit(r.mother, q.mother) &&
+    hit(r.dob, q.dob) &&
+    hit(r.village, q.village)
+  );
+
+  render(res, q);
+}
+
+function row(dt, dd, query){
+  if(dd===null||dd===undefined||dd==='') return '';
+  return `<dt>${dt}</dt><dd>${hl(dd, query)}</dd>`;
+}
+
+function render(res, q){
+  const box = $('results');
+  if(!res.length){
+    box.innerHTML = '';
+    $('status').innerHTML = '';
+    $('empty').style.display = '';
+    $('empty').innerHTML = '<div class="big">😕</div><div>কোনো তথ্য পাওয়া যায়নি</div>'+
+                           '<div style="font-size:.82rem;margin-top:4px">No matching record found — try fewer filters</div>';
+    return;
+  }
+  $('empty').style.display = 'none';
+  $('status').innerHTML = `<b>${res.length}</b> টি ফলাফল পাওয়া গেছে / result(s) found`;
+
+  box.innerHTML = res.map(r => `
+    <div class="card">
+      <h3>${hl(r.name, q.name)}</h3>
+      <div class="sub">${esc(r.name_en||'')}${r.sl?' &nbsp;•&nbsp; ক্রমিক '+esc(r.sl):''}</div>
+      ${r.nid ? `<div class="nid" title="ক্লিক করলে কপি হবে / click to copy"
+                     onclick="copyNid('${esc(r.nid)}')">🆔 ${hl(r.nid, q.nid)}</div>` : ''}
+      <dl class="rows">
+        ${row('পিতা / Father',   r.father,  q.father)}
+        ${row('মাতা / Mother',   r.mother,  q.mother)}
+        ${row('জন্ম / DOB',      r.dob,     q.dob)}
+        ${row('গ্রাম / Village', r.village, q.village)}
+        ${row('ডাকঘর / Post',    r.post,    '')}
+        ${row('উপজেলা / Upazila',r.upazila, '')}
+        ${row('জেলা / District', r.district,'')}
+        ${row('লিঙ্গ / Gender',  r.gender,  '')}
+        ${row('পেশা / Occupation', r.occupation,'')}
+        ${row('মোবাইল / Phone',  r.phone,   '')}
+        ${row('ভোটার নং / Voter No', r.voter_no,'')}
+      </dl>
+    </div>`).join('');
+}
+
+function copyNid(v){
+  navigator.clipboard?.writeText(v).then(()=>toast('NID কপি হয়েছে ✓'),()=>toast('কপি করা যায়নি'));
+}
+let tId;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(tId); tId=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+$('btnSearch').addEventListener('click', search);
+$('btnClear').addEventListener('click', ()=>{
+  ['f_name','f_father','f_mother','f_dob','f_village','f_nid'].forEach(i=>$(i).value='');
+  $('results').innerHTML=''; $('status').innerHTML='';
+  $('empty').style.display='';
+  $('empty').innerHTML='<div class="big">🔎</div><div>উপরে নাম ও পিতার নাম লিখে অনুসন্ধান করুন</div>'+
+                       '<div style="font-size:.82rem;margin-top:4px">Enter a name and father\'s name above to search</div>';
+  $('f_name').focus();
+});
+document.querySelectorAll('input').forEach(inp=>{
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
+  inp.addEventListener('input', ()=>{ clearTimeout(inp._t); inp._t=setTimeout(search,220); });
+});
+$('f_name').focus();
+</script>
+</body>
+</html>
