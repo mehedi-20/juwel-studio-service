@@ -239,8 +239,16 @@ document.addEventListener('DOMContentLoaded', () => {
           nidUploadForm.reset();
           if (nidFileLabel) nidFileLabel.textContent = `📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন`;
         } catch (error) {
-          console.error('[Firebase] Error saving NID:', error);
-          showToast('সংরক্ষণ করতে ত্রুটি হয়েছে: ' + error.message);
+          console.error('[Firebase] Error saving NID, falling back to local save:', error);
+          const exists = DATA.some(r => r.nid === newNidRecord.nid);
+          if (exists) {
+            showToast('ক্লাউড সংরক্ষণ ব্যর্থ এবং এই NID লোকাল ডাটাবেজেও রয়েছে!');
+          } else {
+            DATA.push(newNidRecord);
+            nidUploadForm.reset();
+            if (nidFileLabel) nidFileLabel.textContent = '📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন';
+            showToast('ক্লাউড সংরক্ষণ ব্যর্থ হয়েছে — রেকর্ডটি লোকাল ডাটাবেজে সংরক্ষিত হয়েছে! ⚠️');
+          }
         }
       } else {
         // OFFLINE SUBMISSION (LOCAL DATA FALLBACK)
@@ -304,8 +312,16 @@ document.addEventListener('DOMContentLoaded', () => {
           porchaUploadForm.reset();
           if (porchaFileLabel) porchaFileLabel.textContent = `📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন`;
         } catch (error) {
-          console.error('[Firebase] Error saving Khatian:', error);
-          showToast('সংরক্ষণ করতে ত্রুটি হয়েছে: ' + error.message);
+          console.error('[Firebase] Error saving Khatian, falling back to local save:', error);
+          const exists = KHATIAN_DATA.some(r => r.khatian_no === newKhatianRecord.khatian_no && r.mouza === newKhatianRecord.mouza);
+          if (exists) {
+            showToast('ক্লাউড সংরক্ষণ ব্যর্থ এবং এই খতিয়ানটি লোকাল ডাটাবেজেও রয়েছে!');
+          } else {
+            KHATIAN_DATA.push(newKhatianRecord);
+            porchaUploadForm.reset();
+            if (porchaFileLabel) porchaFileLabel.textContent = '📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন';
+            showToast('ক্লাউড সংরক্ষণ ব্যর্থ হয়েছে — রেকর্ডটি লোকাল ডাটাবেজে সংরক্ষিত হয়েছে! ⚠️');
+          }
         }
       } else {
         // OFFLINE SUBMISSION (LOCAL DATA FALLBACK)
@@ -337,7 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load and Render NID List
   const loadNidList = async () => {
     let list = [];
-    noRecordsMsg.textContent = 'তালিকা লোড হচ্ছে, দয়া করে অপেক্ষা করুন...';
+    noRecordsMsg.style.display = 'block';
+    noRecordsMsg.textContent = 'তালিকা লোড হচ্ছে, দয়া করে অপেক্ষা করুন...';
     recordsTable.style.display = 'none';
 
     if (db) {
@@ -354,7 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (list.length === 0) {
-      noRecordsMsg.textContent = 'ডেটাবেজে কোনো NID রেকর্ড খুঁজে পাওয়া যায়নি।';
+      noRecordsMsg.style.display = 'block';
+      noRecordsMsg.textContent = 'ডেটাবেজে কোনো NID রেকর্ড খুঁজে পাওয়া যায়নি।';
       recordsTable.style.display = 'none';
       return;
     }
@@ -392,7 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load and Render Khatian List
   const loadKhatianList = async () => {
     let list = [];
-    noRecordsMsg.textContent = 'তালিকা লোড হচ্ছে, দয়া করে অপেক্ষা করুন...';
+    noRecordsMsg.style.display = 'block';
+    noRecordsMsg.textContent = 'তালিকা লোড হচ্ছে, দয়া করে অপেক্ষা করুন...';
     recordsTable.style.display = 'none';
 
     if (db) {

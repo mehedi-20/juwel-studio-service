@@ -1,3 +1,10 @@
+// Maps of the most recently rendered search results, keyed by the card
+// index passed through the global onclick handlers. This lets the PDF
+// viewer / download functions find records that came from Firestore
+// (online mode), not only the static DATA / KHATIAN_DATA arrays.
+let lastNidResults = {};
+let lastKhatianResults = {};
+
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ==========================================================================
@@ -205,7 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s === null || s === undefined) return '';
     s = String(s).toLowerCase();
     s = s.replace(/[০-৯]/g, d => BN_DIGITS[d]);
-    s = s.replace(/\b(মোঃ|মোহাম্মদ|মুহাম্মদ|md\.?|mohammad|muhammad|mst\.?|মোছাঃ|মৃত|late)\b/g, ' ');
+    // Strip honorifics/titles so searches still match without them.
+    // NOTE: \b word boundaries do NOT work around Bengali characters,
+    // so these must be plain global replacements.
+    s = s.replace(/(মোঃ|মোছাঃ|মোহাম্মদ|মুহাম্মদ|মৃত|md\.?|mohammad|muhammad|mst\.?|late)/g, ' ');
     s = s.replace(/[.,\-_/()\[\]:;'"]/g, ' ');
     s = s.replace(/\s+/g, ' ').trim();
     return s;
@@ -305,9 +315,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // ONLINE: Query Firestore collections (highly scalable and offline cached!)
       try {
         const querySnapshot = await db.collection('nid_records').get();
-        querySnapshot.forEach((doc) => {
-          searchPool.push(doc.data());
-        });
+        if (querySnapshot.empty && DATA.length) {
+          // Cloud collection is empty — fall back to the bundled local dataset
+          searchPool = [...DATA];
+        } else {
+          querySnapshot.forEach((doc) => {
+            searchPool.push(doc.data());
+          });
+        }
       } catch (err) {
         console.warn('[Firebase] Query error, falling back to local static DATA:', err);
         searchPool = [...DATA];
@@ -373,9 +388,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // ONLINE: Query Firestore
       try {
         const querySnapshot = await db.collection('khatian_records').get();
-        querySnapshot.forEach((doc) => {
-          searchPool.push(doc.data());
-        });
+        if (querySnapshot.empty && KHATIAN_DATA.length) {
+          // Cloud collection is empty — fall back to the bundled local dataset
+          searchPool = [...KHATIAN_DATA];
+        } else {
+          querySnapshot.forEach((doc) => {
+            searchPool.push(doc.data());
+          });
+        }
       } catch (err) {
         console.warn('[Firebase] Query error, falling back to local static KHATIAN_DATA:', err);
         searchPool = [...KHATIAN_DATA];
@@ -404,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
       emptyState.innerHTML = `
         <div class="empty-icon">😕</div>
         <div class="empty-title">কোনো তথ্য পাওয়া যায়নি</div>
-        <p style="font-size:0.88rem;margin-top:4px"> can অনুগ্রহ করে বানান যাচাই করুন অথবা অতিরিক্ত ফিল্টারগুলো কমিয়ে পুনরায় চেষ্টা করুন।</p>
+        <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে বানান যাচাই করুন অথবা অতিরিক্ত ফিল্টারগুলো কমিয়ে পুনরায় চেষ্টা করুন।</p>
       `;
       return;
     }
@@ -412,7 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState.style.display = 'none';
     statusContainer.innerHTML = `<span>${records.length}</span> টি তথ্য সফলভাবে পাওয়া গেছে`;
 
-    resultsGrid.innerHTML = records.map(r => {
+    resultsGrid.innerHTML = records.map((r, i) => {
+      lastNidResults[String(i)] = r;
       const compiled_text = `নাম: ${r.name}
 পিতা: ${r.father}
 মাতা: ${r.mother}
@@ -434,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-body">
           <div class="card-subtitle">
             <span>${esc(r.name_en || '')}</span>
-            <span>ক্রমিক: #${esc(r.sl)}</span>
+            <span>ক্রমিক: #${esc(r.sl ?? '—')}</span>
           </div>
           
           ${r.nid ? `
@@ -468,19 +489,19 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="font-size: 0.75rem; font-weight: 800; color: var(--primary); margin-bottom: 6px; display:flex; align-items:center; gap:4px">
               <span>📋</span> সব তথ্য এক ক্লিপবোর্ডে কপি করুন
             </div>
-            <textarea id="all_details_${r.nid}" readonly style="width: 100%; height: 75px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: #fff; color: var(--text-main); resize: none; font-family: inherit; font-weight: 500; line-height:1.4;" onclick="this.select();">${esc(compiled_text)}</textarea>
-            <button class="btn btn-secondary" onclick="copyAllDetails('${esc(r.nid)}')" style="width: 100%; margin-top: 8px; padding: 8px; font-size: 0.78rem; font-weight: 800; display:flex; align-items:center; justify-content:center; gap: 4px; border-color: var(--primary-light); color: var(--secondary); background: #fff; cursor: pointer; border-radius: 8px;">
+            <textarea id="all_details_n${i}" readonly style="width: 100%; height: 75px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: #fff; color: var(--text-main); resize: none; font-family: inherit; font-weight: 500; line-height:1.4;" onclick="this.select();">${esc(compiled_text)}</textarea>
+            <button class="btn btn-secondary" onclick="copyAllDetails('all_details_n${i}')" style="width: 100%; margin-top: 8px; padding: 8px; font-size: 0.78rem; font-weight: 800; display:flex; align-items:center; justify-content:center; gap: 4px; border-color: var(--primary-light); color: var(--secondary); background: #fff; cursor: pointer; border-radius: 8px;">
               📋 সব তথ্য কপি করুন
             </button>
           </div>
         </div>
         
         <div class="card-actions">
-          <button class="btn btn-primary btn-view-pdf" onclick="openPdfViewer('${esc(r.nid)}')">
+          <button class="btn btn-primary btn-view-pdf" onclick="openPdfViewer('${i}')">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
             সরাসরি দেখুন
           </button>
-          <button class="btn btn-download-pdf" onclick="downloadPdf('${esc(r.nid)}', '${esc(r.pdf)}')">
+          <button class="btn btn-download-pdf" onclick="downloadPdf('${i}', '${esc(r.pdf)}')">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             ডাউনলোড
           </button>
@@ -499,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
       emptyState.innerHTML = `
         <div class="empty-icon">😕</div>
         <div class="empty-title">কোনো খতিয়ান বা পর্চা পাওয়া যায়নি</div>
-        <p style="font-size:0.88rem;margin-top:4px"> can অনুগ্রহ করে খতিয়ান নম্বর বা মালিকের নাম পুনরায় যাচাই করুন।</p>
+        <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে খতিয়ান নম্বর বা মালিকের নাম পুনরায় যাচাই করুন।</p>
       `;
       return;
     }
@@ -507,7 +528,8 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState.style.display = 'none';
     statusContainer.innerHTML = `<span>${records.length}</span> টি খতিয়ান সফলভাবে পাওয়া গেছে`;
 
-    resultsGrid.innerHTML = records.map(r => {
+    resultsGrid.innerHTML = records.map((r, i) => {
+      lastKhatianResults[String(i)] = r;
       const compiled_text = `খতিয়ান নম্বর: ${r.khatian_no}
 দাগ নম্বর: ${r.dag_no}
 মৌজা: ${r.mouza}
@@ -553,19 +575,19 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="font-size: 0.75rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; display:flex; align-items:center; gap:4px">
               <span>📋</span> সব তথ্য এক ক্লিপবোর্ডে কপি করুন
             </div>
-            <textarea id="all_details_${r.khatian_no}" readonly style="width: 100%; height: 75px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: #fff; color: var(--text-main); resize: none; font-family: inherit; font-weight: 500; line-height:1.4;" onclick="this.select();">${esc(compiled_text)}</textarea>
-            <button class="btn btn-secondary" onclick="copyAllDetails('${esc(r.khatian_no)}')" style="width: 100%; margin-top: 8px; padding: 8px; font-size: 0.78rem; font-weight: 800; display:flex; align-items:center; justify-content:center; gap: 4px; border-color: #fca5a5; color: var(--accent); background: #fff; cursor: pointer; border-radius: 8px;">
+            <textarea id="all_details_p${i}" readonly style="width: 100%; height: 75px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: #fff; color: var(--text-main); resize: none; font-family: inherit; font-weight: 500; line-height:1.4;" onclick="this.select();">${esc(compiled_text)}</textarea>
+            <button class="btn btn-secondary" onclick="copyAllDetails('all_details_p${i}')" style="width: 100%; margin-top: 8px; padding: 8px; font-size: 0.78rem; font-weight: 800; display:flex; align-items:center; justify-content:center; gap: 4px; border-color: #fca5a5; color: var(--accent); background: #fff; cursor: pointer; border-radius: 8px;">
               📋 সব তথ্য কপি করুন
             </button>
           </div>
         </div>
         
         <div class="card-actions">
-          <button class="btn btn-primary btn-view-pdf" onclick="openPdfViewer('${esc(r.khatian_no)}', true)" style="background: var(--accent) !important;">
+          <button class="btn btn-primary btn-view-pdf" onclick="openPdfViewer('${i}', true)" style="background: var(--accent) !important;">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
             পর্চা দেখুন
           </button>
-          <button class="btn btn-download-pdf" onclick="downloadPdf('${esc(r.khatian_no)}', '${esc(r.pdf)}', true)">
+          <button class="btn btn-download-pdf" onclick="downloadPdf('${i}', '${esc(r.pdf)}', true)">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             ডাউনলোড
           </button>
@@ -575,24 +597,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
+  // Low-level clipboard writer with legacy fallback for insecure contexts
+  const writeClipboard = (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    // Fallback: hidden textarea + execCommand (works without the Clipboard API)
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('execCommand copy failed'));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
   // Copy to clipboard with toast
   window.copyToClipboard = (text) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      showToast('কপি করা হয়েছে! ✓');
+    writeClipboard(text).then(() => {
+      showToast('কপি করা হয়েছে! ✓');
     }).catch(() => {
-      showToast('কপি করা সম্ভব হয়নি।');
+      showToast('কপি করা সম্ভব হয়নি।');
     });
   };
 
   // Copy all details function
   window.copyAllDetails = (id) => {
-    const textarea = document.getElementById(`all_details_${id}`);
+    const textarea = document.getElementById(id);
     if (!textarea) return;
     textarea.select();
-    navigator.clipboard?.writeText(textarea.value).then(() => {
-      showToast('সব তথ্য সফলভাবে কপি করা হয়েছে! ✓');
+    writeClipboard(textarea.value).then(() => {
+      showToast('সব তথ্য সফলভাবে কপি করা হয়েছে! ✓');
     }).catch(() => {
-      showToast('কপি করা সম্ভব হয়নি।');
+      showToast('কপি করা সম্ভব হয়নি।');
     });
   };
 
@@ -652,18 +699,22 @@ function openPdfViewer(id, isKhatian = false) {
   
   if (!modal || !modalBody) return;
   
-  // Try to find Khatian or NID record in locally cached arrays or loaded scope
+  // Find the record: first in the most recently rendered results (works for
+  // Firestore records too), then fall back to the static local arrays.
+  const key = String(id);
   let record = null;
   if (isKhatian) {
-    if (typeof KHATIAN_DATA !== 'undefined') {
+    record = lastKhatianResults[key];
+    if (!record && typeof KHATIAN_DATA !== 'undefined') {
       record = KHATIAN_DATA.find(r => r.khatian_no === id);
     }
   } else {
-    if (typeof DATA !== 'undefined') {
+    record = lastNidResults[key];
+    if (!record && typeof DATA !== 'undefined') {
       record = DATA.find(r => r.nid === id);
     }
   }
-  
+
   if (!record) return;
 
   if (isKhatian) {
@@ -713,7 +764,7 @@ function openPdfViewer(id, isKhatian = false) {
             </div>
           </div>
 
-          <button class="btn btn-primary" onclick="downloadPdf('${esc(record.khatian_no)}', '${esc(record.pdf)}', true)" style="background: var(--accent) !important;">
+          <button class="btn btn-primary" onclick="downloadPdf('${esc(id)}', '${esc(record.pdf)}', true)" style="background: var(--accent) !important;">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-right:6px"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             অফিশিয়াল পর্চা ডাউনলোড করুন
           </button>
@@ -763,7 +814,7 @@ function openPdfViewer(id, isKhatian = false) {
             </div>
           </div>
 
-          <button class="btn btn-primary" onclick="downloadPdf('${esc(record.nid)}', '${esc(record.pdf)}')">
+          <button class="btn btn-primary" onclick="downloadPdf('${esc(id)}', '${esc(record.pdf)}')">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-right:6px"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             অফিসিয়াল PDF ডাউনলোড করুন
           </button>
@@ -780,26 +831,45 @@ function closePdfViewer() {
   if (modal) modal.classList.remove('show');
 }
 
+// Bengali digit -> ASCII digit helper (for clean file names)
+function bnToAscii(s) {
+  const BN = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  return String(s ?? '').replace(/[০-৯]/g, d => BN[d]);
+}
+
 // Function to simulate PDF download (or download if exists)
 function downloadPdf(id, pdfPath, isKhatian = false) {
-  let downloadName = '';
-  if (isKhatian) {
-    if (typeof KHATIAN_DATA !== 'undefined') {
-      const record = KHATIAN_DATA.find(r => r.khatian_no === id);
-      if (!record) return;
-      downloadName = `Khatian_${record.khatian_no}_Mouza_${record.mouza.replace(/\s+/g, '_')}.pdf`;
-    }
-  } else {
-    if (typeof DATA !== 'undefined') {
-      const record = DATA.find(r => r.nid === id);
-      if (!record) return;
-      downloadName = `NID_${record.nid}_${record.name_en.replace(/\s+/g, '_')}.pdf`;
+  // Find the record: most recently rendered results first, then static data
+  const key = String(id);
+  let record = (isKhatian ? lastKhatianResults : lastNidResults)[key];
+  if (!record) {
+    if (isKhatian && typeof KHATIAN_DATA !== 'undefined') {
+      record = KHATIAN_DATA.find(r => r.khatian_no === id);
+    } else if (!isKhatian && typeof DATA !== 'undefined') {
+      record = DATA.find(r => r.nid === id);
     }
   }
 
+  // Build a friendly file name; never throw if a field is missing
+  let downloadName;
+  if (record) {
+    if (isKhatian) {
+      const mouza = String(record.mouza || 'mouza').replace(/\s+/g, '_');
+      const khatianNo = bnToAscii(record.khatian_no || id);
+      downloadName = `Khatian_${khatianNo}_Mouza_${mouza}.pdf`;
+    } else {
+      const nameEn = String(record.name_en || '').replace(/\s+/g, '_');
+      downloadName = `NID_${record.nid || id}${nameEn ? '_' + nameEn : ''}.pdf`;
+    }
+  } else {
+    downloadName = isKhatian ? `Khatian_${id}.pdf` : `NID_${id}.pdf`;
+  }
+
   const anchor = document.createElement('a');
-  anchor.href = pdfPath;
+  anchor.href = pdfPath || 'pdfs/fallback.pdf';
   anchor.download = downloadName;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);

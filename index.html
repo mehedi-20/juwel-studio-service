@@ -4,8 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#1e3a8a">
   <title>জুয়েল টেলিকম | জুয়েল ই-সেবা পোর্টাল</title>
-  
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +35,7 @@
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <button id="pwaInstallBtn" class="btn-pwa" style="display:none;" title="অ্যাপ ইনস্টল করুন">📲 অ্যাপ ইনস্টল</button>
         <a href="admin.html" class="system-tag" style="background: var(--brand); color:#fff; text-decoration:none; display:flex; align-items:center; gap:4px;">
           ⚙️ অ্যাডমিন প্যানেল
         </a>
@@ -43,9 +49,9 @@
     <div class="header-container">
       <div class="brand-wrapper">
         <!-- Logo Image - falls back to beautiful inline SVG if image is missing -->
-        <img id="logoImg" src="assets/logo.jpg" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('logoSvgFallback').style.display='block';" alt="Juwel Telecom Logo" style="display:none;">
+        <img id="logoImg" src="assets/logo.svg" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('logoSvgFallback').style.display='block';" alt="Juwel Telecom Logo" style="display:block;">
         
-        <div id="logoSvgFallback" style="display:block;">
+        <div id="logoSvgFallback" style="display:none;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" class="brand-logo-svg">
             <circle cx="250" cy="250" r="235" fill="#ffffff" stroke="url(#borderGradient)" stroke-width="12" />
             <defs>
@@ -285,16 +291,21 @@
   <script src="js/data.js?v=3.1"></script>
   <script src="js/app.js?v=3.1"></script>
   <script>
-    // Adjust logo display dynamically in case assets/logo.jpg exists later
+    // Adjust logo display dynamically in case assets/logo.svg is missing
     document.addEventListener("DOMContentLoaded", () => {
       const logoImg = document.getElementById("logoImg");
       const logoSvgFallback = document.getElementById("logoSvgFallback");
-      
+      if (!logoImg || !logoSvgFallback) return;
+
       const img = new Image();
-      img.src = "assets/logo.jpg";
+      img.src = "assets/logo.svg";
       img.onload = () => {
         logoImg.style.display = "block";
         logoSvgFallback.style.display = "none";
+      };
+      img.onerror = () => {
+        logoImg.style.display = "none";
+        logoSvgFallback.style.display = "block";
       };
     });
   </script>

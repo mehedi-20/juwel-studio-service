@@ -129,7 +129,7 @@ const DATA = [
     "phone": "01738782255",
     "voter_no": "730637011285",
     "gender": "পুরুষ",
-    "occupation": "কৃষक",
+    "occupation": "কৃষক",
     "pdf": "pdfs/730637011285.pdf"
   },
   {
@@ -224,7 +224,7 @@ const DATA = [
     "phone": "01738782255",
     "voter_no": "730637996268",
     "gender": "পুরুষ",
-    "occupation": "কৃষक",
+    "occupation": "কৃষক",
     "pdf": "pdfs/730637996268.pdf"
   },
   {
@@ -247,7 +247,7 @@ const DATA = [
     "pdf": "pdfs/730637996450.pdf"
   },
   {
-    "sl": 15,
+    "sl": 14,
     "name": "পদার চন্দ্র রায়",
     "name_en": "Podar Chandra Roy",
     "nid": "730637996246",
@@ -320,7 +320,7 @@ const KHATIAN_DATA = [
     "dag_no": "২৩",
     "mouza": "উত্তর চাঁদখানা",
     "jl_no": "১২",
-    "upazila": "کিশোরগঞ্জ",
+    "upazila": "কিশোরগঞ্জ",
     "district": "নীলফামারী",
     "division": "রংপুর",
     "owner": "মোঃ জসিম উদ্দিন",
