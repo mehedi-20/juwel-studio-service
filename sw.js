@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juwel-telecom-esheba-v4';
+const CACHE_NAME = 'juwel-telecom-esheba-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,6 +10,8 @@ const ASSETS_TO_CACHE = [
   './js/admin.js',
   './js/firebase-config.js',
   './js/pdf-text-index.js',
+  './js/pdf-voter-entries.js',
+  './js/pdf-name-overrides.js',
   './assets/logo.svg',
   './manifest.json'
 ];

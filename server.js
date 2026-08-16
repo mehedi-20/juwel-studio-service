@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { spawn } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
@@ -8,6 +9,29 @@ const ROOT = __dirname;
 const UPLOADS_FILE = path.join(ROOT, 'js', 'data-uploads.js');
 const OVERRIDES_FILE = path.join(ROOT, 'js', 'pdf-name-overrides.js');
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// অ্যাডমিন প্যানেলের পাসওয়ার্ড (js/admin.js-এর সাথে মিলিয়ে রাখুন)।
+// POST API গুলোতে 'x-admin-pass' হেডার হিসেবে এই পাসওয়ার্ড পাঠাতে হয়,
+// যাতে এলোমেলো লোক সার্ভারে রেকর্ড/PDF জমা দিতে না পারে।
+const ADMIN_PASSWORDS = ['mehedi987', 'Julfikar5320@'];
+
+const isAdminAuthed = (req) => {
+  const h = req.headers['x-admin-pass'] || req.headers['x-admin-password'] || '';
+  return ADMIN_PASSWORDS.includes(String(h));
+};
+
+// যেসব ফাইল সার্ভার নিজে আপডেট করে — এগুলো ক্যাশে করা যাবে না
+const NEVER_CACHE = new Set([
+  '/js/data-uploads.js',
+  '/js/pdf-name-overrides.js',
+  '/js/pdf-text-index.js',
+  '/js/pdf-voter-entries.js'
+]);
+
+// যেসব MIME-এ gzip কম্প্রেশন লাভজনক
+const COMPRESSIBLE = new Set([
+  '.html', '.css', '.js', '.json', '.webmanifest', '.svg', '.txt', '.ico', '.md'
+]);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -21,6 +45,18 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.ico': 'image/x-icon'
+};
+
+// স্ট্যাটিক ফাইলের ক্যাশ নীতি:
+//  - HTML/SW/manifest: no-cache (সবসময় রি-ভ্যালিডেট, কিন্তু ETag/304 না থাকায় পুরোটা নামে)
+//  - ডাইনামিক JS (সার্ভার-লিখিত): no-store
+//  - বাকি অ্যাসেট (css, js, ছবি, PDF): ১ ঘণ্টা ক্যাশ
+const cacheControlFor = (pathname, ext) => {
+  if (NEVER_CACHE.has(pathname)) return 'no-store';
+  if (ext === '.html' || ext === '.webmanifest' || pathname === '/sw.js') {
+    return 'no-cache, must-revalidate';
+  }
+  return 'public, max-age=3600';
 };
 
 const server = http.createServer((req, res) => {
@@ -45,18 +81,30 @@ const server = http.createServer((req, res) => {
 
   // অ্যাডমিন প্যানেল থেকে রেকর্ড + PDF আপলোড (persist হয় সার্ভারে!)
   if (req.method === 'POST' && pathname === '/api/upload-record') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handleUpload(req, res);
     return;
   }
 
   // বাল্ক ইমপোর্ট (একসাথে অনেক রেকর্ড — ভোটার তালিকা ইত্যাদি)
   if (req.method === 'POST' && pathname === '/api/bulk-import') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handleBulkImport(req, res);
     return;
   }
 
   // বাল্ক PDF আপলোড (একসাথে অনেক PDF — খতিয়ান/ভোটার তালিকার স্ক্যান)
   if (req.method === 'POST' && pathname === '/api/bulk-pdf-upload') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handleBulkPdfUpload(req, res);
     return;
   }
@@ -67,16 +115,28 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.method === 'POST' && pathname === '/api/pdf-names') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handlePdfNames(req, res);
     return;
   }
 
   // OCR: PDF থেকে অটো নাম পড়া
   if (req.method === 'POST' && pathname === '/api/ocr-pdf') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handleOcrPdf(req, res);
     return;
   }
   if (req.method === 'POST' && pathname === '/api/ocr-queue') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
     handleOcrQueue(req, res);
     return;
   }
@@ -105,11 +165,35 @@ const server = http.createServer((req, res) => {
 
     const extname = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[extname] || 'application/octet-stream';
+    const cacheControl = cacheControlFor(pathname, extname);
+
+    // gzip কম্প্রেশন — ১২.৯ MB-র pdf-text-index.js-এর মতো বড় JS
+    // gzip হয়ে ~১ MB-এ নামে (মোবাইল ডেটায় বড় পার্থক্য!)
+    const acceptEncoding = String(req.headers['accept-encoding'] || '');
+    const useGzip = COMPRESSIBLE.has(extname) && /\bgzip\b/.test(acceptEncoding);
+
+    if (useGzip) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding',
+        'Cache-Control': cacheControl
+      });
+      const gzip = zlib.createGzip({ level: 6 });
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (err) => {
+        console.log(`[500] Stream error: ${err.code}`);
+        res.destroy();
+      });
+      gzip.on('error', () => res.destroy());
+      stream.pipe(gzip).pipe(res);
+      return;
+    }
 
     res.writeHead(200, {
       'Content-Type': contentType,
       'Content-Length': stats.size,
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+      'Cache-Control': cacheControl
     });
 
     // Stream the file (binary-safe, unlike encoding-forced end())
@@ -529,6 +613,18 @@ function handleUpload(req, res) {
       }
       if (!record || typeof record !== 'object') {
         return sendJson(res, 400, { ok: false, error: 'রেকর্ড ডেটা নেই' });
+      }
+
+      // আবশ্যিক ফিল্ড যাচাই — খালি/ভুল রেকর্ড জমা পড়া বন্ধ করতে
+      const name = String(record.name || '').trim();
+      if (type === 'nid' && !name) {
+        return sendJson(res, 400, { ok: false, error: 'নাম (name) আবশ্যিক' });
+      }
+      if (type === 'khatian' && !String(record.khatian_no || '').trim()) {
+        return sendJson(res, 400, { ok: false, error: 'খতিয়ান নম্বর (khatian_no) আবশ্যিক' });
+      }
+      if (type === 'nid' && !String(record.nid || '').trim()) {
+        return sendJson(res, 400, { ok: false, error: 'NID নম্বর আবশ্যিক' });
       }
 
       let pdfPath = (typeof record.pdf === 'string' && record.pdf.startsWith('pdfs/'))

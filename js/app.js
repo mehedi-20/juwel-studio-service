@@ -893,6 +893,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // PDF আর্কাইভ সেকশন রেন্ডার (রেকর্ডবিহীন PDF থেকে উদ্ধারকৃত টেক্সট)
+  // আর্কাইভ কার্ডে পুরো টেক্সট ঢোকালে (কখনো ২৫০,০০০+ অক্ষর) পেজ হ্যাং/ফ্রিজ হয়ে যায়।
+  // তাই কার্ডে শুধু প্রথম অংশ (স্নিপেট) দেখাই — পুরো টেক্সট "👁️ টেক্সট দেখুন"-এ আছে।
+  const archiveTextSnippet = (text) => {
+    const t = String(text || '');
+    const MAX = 300;
+    if (t.length <= MAX) return esc(t);
+    let cut = t.lastIndexOf(' ', MAX);
+    if (cut < MAX * 0.5) cut = MAX;
+    return esc(t.slice(0, cut)) + '&hellip;';
+  };
+
   function renderArchiveSection(hits) {
     if (!archiveSection || !archiveGrid) return;
     if (!hits || hits.length === 0) {
@@ -925,7 +936,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           ` : ''}
           <div style="font-size:0.8rem; color:var(--text-muted); background:#f8fafc; border:1px dashed var(--border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
-            <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট:</b> ${esc(e.text)}
+            <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট (প্রথমাংশ):</b> ${archiveTextSnippet(e.text)}
+            ${String(e.text || '').length > 300 ? '<div style="margin-top:6px; font-size:0.72rem; color:#7c3aed; font-weight:700;">বাকি অংশ দেখতে নিচের "👁️ টেক্সট দেখুন" বাটনে ক্লিক করুন</div>' : ''}
           </div>
           <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
             📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
@@ -1275,7 +1287,7 @@ window.openArchiveViewer = (index) => {
           ${entry.nid ? `<div class="cert-row"><span class="cert-label">NID:</span><span class="cert-value" style="font-family:monospace;">${esc(entry.nid)}</span></div>` : ''}
           <div class="cert-row"><span class="cert-label">নাম:</span><span class="cert-value">${esc(entry.name || '—')}</span></div>
           <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
-            <span class="cert-value" style="white-space: pre-wrap; font-weight: 500; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px;">${esc(entry.text)}</span>
+            <span class="cert-value" style="white-space: pre-wrap; font-weight: 500; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; max-height: 60vh; overflow-y: auto; display: block;">${esc(entry.text)}</span>
           </div>
         </div>
         <button class="btn btn-primary" onclick="downloadArchivePdf('${esc(entry.pdf)}')" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%) !important;">

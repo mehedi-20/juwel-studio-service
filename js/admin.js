@@ -5,6 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
      1. Password Security Check (Admin Panel)
      ========================================================================== */
   const ALLOWED_PASSWORDS = ["mehedi987", "Julfikar5320@"];
+
+  // সার্ভারের POST API গুলোতে অ্যাডমিন পাসওয়ার্ড হেডার হিসেবে পাঠানো হয়
+  // (সার্ভার এখন শুধু পরিচিত পাসওয়ার্ডের অনুরোধই গ্রহণ করে)
+  const adminFetch = (url, opts = {}) => {
+    opts.headers = { ...(opts.headers || {}), 'x-admin-pass': ALLOWED_PASSWORDS[0] };
+    return fetch(url, opts);
+  };
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
   const loginPasswordInput = document.getElementById('loginPassword');
@@ -264,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         if (bulkResult) bulkResult.textContent = '📥 ইমপোর্ট হচ্ছে, দয়া করে অপেক্ষা করুন...';
-        const resp = await fetch('/api/bulk-import', {
+        const resp = await adminFetch('/api/bulk-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type, records })
@@ -348,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (!payloadFiles.length) continue;
 
-          const resp = await fetch('/api/bulk-pdf-upload', {
+          const resp = await adminFetch('/api/bulk-pdf-upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: payloadFiles })
@@ -397,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadPdfList() {
     try {
-      const resp = await fetch('/api/pdf-list');
+      const resp = await adminFetch('/api/pdf-list');
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'তালিকা লোড হয়নি');
       pdfListCache = data.files || [];
@@ -429,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const names = raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
       try {
         if (overrideResult) overrideResult.textContent = '💾 সেভ হচ্ছে...';
-        const resp = await fetch('/api/pdf-names', {
+        const resp = await adminFetch('/api/pdf-names', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pdf, names })
@@ -466,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let ocrPollTimer = null;
 
   function pollOcrStatus() {
-    fetch('/api/ocr-status').then(r => r.json()).then(data => {
+    adminFetch('/api/ocr-status').then(r => r.json()).then(data => {
       const st = data.state || {};
       if (!ocrStatus) return;
       let msg = '';
@@ -496,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pdf = ocrPdfSelect ? ocrPdfSelect.value : '';
       if (!pdf) { if (ocrStatus) ocrStatus.textContent = '⚠️ আগে একটি PDF বেছে নিন'; return; }
       try {
-        const resp = await fetch('/api/ocr-pdf', {
+        const resp = await adminFetch('/api/ocr-pdf', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pdf })
         });
@@ -515,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnOcrAll.addEventListener('click', async () => {
       if (!confirm('সব PDF একে একে পড়া হবে — এতে কয়েক ঘণ্টা লাগতে পারে (ব্যাকগ্রাউন্ডে চলবে)। চালাবেন?')) return;
       try {
-        const resp = await fetch('/api/ocr-queue', { method: 'POST' });
+        const resp = await adminFetch('/api/ocr-queue', { method: 'POST' });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
         if (ocrStatus) { ocrStatus.style.color = '#b45309'; ocrStatus.textContent = '⏳ ' + data.added + ' টি PDF কিউতে যোগ হয়েছে — একে একে পড়া হবে'; }
@@ -583,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         payload.fileBase64 = String(dataUrl).split(',')[1] || '';
         payload.fileName = file.name;
       }
-      const resp = await fetch('/api/upload-record', {
+      const resp = await adminFetch('/api/upload-record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
