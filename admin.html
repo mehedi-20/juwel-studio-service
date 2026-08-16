@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
-  <link rel="stylesheet" href="css/style.css?v=3.1">
+  <link rel="stylesheet" href="css/style.css?v=3.3">
   <style>
     .admin-card {
       max-width: 800px;
@@ -186,6 +186,7 @@
         <div class="tabs-menu">
           <button id="tabNidForm" class="tab-btn active-tab">🆔 ভোটার / NID তথ্য আপলোড</button>
           <button id="tabPorchaForm" class="tab-btn">📄 ই-পর্চা / খতিয়ান তথ্য আপলোড</button>
+          <button id="tabBulkForm" class="tab-btn">📥 বাল্ক ইমপোর্ট (একসাথে অনেক)</button>
         </div>
 
         <!-- 1. NID Upload Form -->
@@ -270,6 +271,11 @@
             </div>
           </div>
 
+          <div class="form-field">
+            <label>অনুসন্ধান কীওয়ার্ড / Search Keywords <span class="optional">(ঐচ্ছিক)</span></label>
+            <input type="text" id="n_search_text" placeholder="যেমন: ডাকনাম, বিকল্প বানান, অন্য নাম — কমা (,) দিয়ে আলাদা করুন" autocomplete="off">
+          </div>
+
           <!-- File Upload -->
           <div class="form-field">
             <label>NID PDF ডকুমেন্ট আপলোড</label>
@@ -345,6 +351,11 @@
             </div>
           </div>
 
+          <div class="form-field">
+            <label>খতিয়ানে থাকা অন্যান্য নাম / Search Keywords <span class="optional">(ঐচ্ছিক)</span></label>
+            <textarea id="k_search_text" rows="2" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.92rem; font-family: inherit; outline: none; width: 100%;" placeholder="খতিয়ানের ভেতরে যত নাম/দাগ/তথ্য আছে তা লিখুন — কমা (,) দিয়ে আলাদা করুন। এই নামগুলো দিয়েই পরে সার্চ করা যাবে।"></textarea>
+          </div>
+
           <!-- File Upload -->
           <div class="form-field">
             <label>ই-পর্চা PDF ডকুমেন্ট আপলোড</label>
@@ -359,6 +370,122 @@
           </button>
         </form>
 
+      </div>
+
+      <!-- 3. Bulk Import Form (একসাথে হাজারো রেকর্ড) -->
+      <div id="bulkImportPanel" style="display: none;">
+        <div class="form-field">
+          <label>কী ইমপোর্ট করবেন? <span class="required">*</span></label>
+          <select id="bulk_type">
+            <option value="nid">🆔 ভোটার / NID তালিকা</option>
+            <option value="khatian">📄 খতিয়ান তালিকা</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label>CSV ফাইল আপলোড <span class="optional">(ঐচ্ছিক — নিচে পেস্ট না করলে)</span></label>
+          <div class="file-upload-box">
+            <span id="bulkFileLabel">📁 Excel/CSV ফাইল সিলেক্ট করুন (.csv)</span>
+            <input type="file" id="bulk_file" accept=".csv,.txt,text/csv">
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>অথবা CSV টেক্সট পেস্ট করুন <span class="optional">(প্রথম লাইনে হেডার থাকতে হবে)</span></label>
+          <textarea id="bulk_csv" rows="8" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: monospace; outline: none; width: 100%;" placeholder="এখানে CSV ডেটা পেস্ট করুন..."></textarea>
+        </div>
+
+        <div class="bulk-help">
+          <b>📋 CSV হেডার (ইংরেজি):</b><br>
+          <code>NID:</code> sl,name,name_en,nid,father,mother,dob,village,union,post,upazila,district,occupation,gender<br>
+          <code>খতিয়ান:</code> khatian_no,dag_no,owner,father,mouza,jl_no,upazila,district,division,land_type,area,search_text<br>
+          <small style="color:var(--text-muted)">হেডারের পরে প্রতিটি লাইনে একজন ব্যক্তির তথ্য কমা (,) দিয়ে আলাদা করে লিখুন। বাংলা হেডারও চলবে।</small>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnBulkImport" style="margin-top:16px; height: 48px;">
+          📥 ইমপোর্ট করুন
+        </button>
+        <div id="bulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: var(--accent); margin-bottom: 10px;">📁 PDF ফাইল বাল্ক আপলোড (খতিয়ান / ভোটার তালিকার PDF)</h4>
+
+        <div class="bulk-help" style="border-left-color: var(--accent);">
+          <b>যেভাবে কাজ করবে:</b> সব PDF একসাথে সিলেক্ট করে আপলোড করলেই প্রতিটি PDF থেকে টেক্সট বের হয়ে সার্চ ইনডেক্সে যোগ হবে — তখন PDF-এর ভেতরের যেকোনো নাম লিখে খুঁজলেই ফলাফল আসবে।<br><br>
+          <b>⚠️ স্ক্যান করা PDF (ছবি):</b> যেসব PDF ছবি থেকে স্ক্যান করা, সেগুলোর ভেতরে টেক্সট থাকে না — সেগুলোর <b>ফাইলের নামে খতিয়ান নং/মৌজা/নাম রেখে দিন</b> (যেমন: <code>খতিয়ান-২৬-উত্তর-চাঁদখানা-হিমাংশু.pdf</code>) — তাহলে নাম ধরে খুঁজে পাওয়া যাবে।<br>
+          <small style="color:var(--text-muted)">এক ব্যাচে ১০টা করে ফাইল আপলোড হবে — সবশেষে সারাংশ দেখানো হবে কোন কোন PDF-এ টেক্সট পাওয়া গেছে।</small>
+        </div>
+
+        <div class="form-field">
+          <label>PDF ফাইল সিলেক্ট করুন (একসাথে অনেকগুলো — Ctrl+A চেপে সব)</label>
+          <div class="file-upload-box">
+            <span id="pdfBulkLabel">📁 সব PDF ফাইল সিলেক্ট করুন</span>
+            <input type="file" id="pdf_bulk_files" accept="application/pdf,.pdf" multiple>
+          </div>
+        </div>
+        <div id="pdfBulkList" style="font-size:0.8rem; color:var(--text-muted); margin-top:8px; max-height: 140px; overflow-y: auto;"></div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnPdfBulkUpload" style="margin-top:12px; height: 48px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
+          ⬆️ সব PDF আপলোড করুন
+        </button>
+        <div id="pdfBulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: var(--primary); margin-bottom: 10px;">✏️ PDF-এর সঠিক নাম বসানো (ভাঙা ফন্ট ঠিক করতে)</h4>
+
+        <div class="bulk-help" style="border-left-color: var(--secondary);">
+          <b>কেন দরকার:</b> কিছু PDF (বিশেষ করে ভোটার তালিকা) থেকে নাম ভাঙা অক্ষরে আসে (যেমন: <code>sরীফা</code> → <code>শরীফা</code>)। নিচের তালিকা থেকে PDF বেছে নিয়ে সঠিক নামগুলো লিখে সেভ করলে, ওই নামগুলো দিয়ে নিখুঁতভাবে সার্চ করা যাবে।<br>
+          <small style="color:var(--text-muted)">প্রতিটা নাম আলাদা লাইনে লিখুন (অথবা কমা দিয়ে আলাদা করুন)।</small>
+        </div>
+
+        <div class="form-group-row" style="margin-top:14px;">
+          <div class="form-field">
+            <label>PDF ফাইল বেছে নিন</label>
+            <select id="override_pdf_select" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: inherit;">
+              <option value="">-- লোড হচ্ছে... --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>সঠিক নামের তালিকা (এক লাইনে এক নাম)</label>
+          <textarea id="override_names" rows="8" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.88rem; font-family: inherit; outline: none; width: 100%;" placeholder="মোছাঃ শরীফা বেগম&#10;মোছাঃ শেফালী বেগম&#10;..."></textarea>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnSaveOverrides" style="margin-top:10px; height: 44px;">
+          💾 নামের তালিকা সেভ করুন
+        </button>
+        <div id="overrideResult" style="margin-top: 10px; font-size: 0.85rem; font-weight: 700;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: #7c3aed; margin-bottom: 10px;">🤖 অটো নাম পড়ুন (OCR) — হাতে নাম লেখা লাগবে না!</h4>
+
+        <div class="bulk-help" style="border-left-color: #7c3aed;">
+          <b>এক ক্লিকে PDF থেকে সব নাম পড়বে:</b> মেশিন PDF-এর প্রতিটি পেজ ছবি বানিয়ে বাংলা OCR দিয়ে নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব পড়ে ওয়েবসাইটে সেভ করবে। তখন নাম লিখলেই পূর্ণ বিবরণসহ ফলাফল আসবে।<br>
+          <small style="color:var(--text-muted)">প্রতি PDF-এ প্রায় ৩-৫ মিনিট লাগে (৩০০-৪০০ জন থাকে)। ব্যাকগ্রাউন্ডে চলবে — আপনি অন্য কাজ করতে পারবেন।</small>
+        </div>
+
+        <div class="form-group-row" style="margin-top:14px;">
+          <div class="form-field">
+            <label>কোন PDF পড়বে?</label>
+            <select id="ocr_pdf_select" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: inherit;">
+              <option value="">-- লোড হচ্ছে... --</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <button type="button" class="btn btn-primary" id="btnOcrOne" style="flex:1; min-width:180px; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
+            🤖 এই PDF পড়ুন
+          </button>
+          <button type="button" class="btn btn-primary" id="btnOcrAll" style="flex:1; min-width:180px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
+            ⚡ সব PDF একে একে পড়ুন
+          </button>
+        </div>
+        <div id="ocrStatus" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700; white-space: pre-wrap;"></div>
       </div>
 
       <!-- Manage Section / Show lists -->
@@ -397,6 +524,7 @@
 
   <!-- Load Scripts -->
   <script src="js/data.js"></script>
+  <script src="js/data-uploads.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/admin.js"></script>
 

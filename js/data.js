@@ -129,7 +129,7 @@ const DATA = [
     "phone": "01738782255",
     "voter_no": "730637011285",
     "gender": "পুরুষ",
-    "occupation": "কৃষक",
+    "occupation": "কৃষক",
     "pdf": "pdfs/730637011285.pdf"
   },
   {
@@ -224,7 +224,7 @@ const DATA = [
     "phone": "01738782255",
     "voter_no": "730637996268",
     "gender": "পুরুষ",
-    "occupation": "কৃষक",
+    "occupation": "কৃষক",
     "pdf": "pdfs/730637996268.pdf"
   },
   {
@@ -247,7 +247,7 @@ const DATA = [
     "pdf": "pdfs/730637996450.pdf"
   },
   {
-    "sl": 15,
+    "sl": 14,
     "name": "পদার চন্দ্র রায়",
     "name_en": "Podar Chandra Roy",
     "nid": "730637996246",
@@ -282,7 +282,24 @@ const KHATIAN_DATA = [
     "father": "কুমুদ রঞ্জন রায়",
     "land_type": "ভিটা / ধানী জমি (এস এ খতিয়ান)",
     "area": "০.৫২ একর (৫২ শতাংশ)",
-    "pdf": "pdfs/khatian-26.pdf"
+    "pdf": "pdfs/khatian-26.pdf",
+    "search_text": "হিমাংশু কুমার ডালিম, কেশব চন্দ্র রায়, পরিতোষ চন্দ্র রায়, ব্রজেন্দ্র নাথ রায়, দুলাল চন্দ্র রায়, আদেশ চন্দ্র রায়, ভোলা নাথ রায়, অশ্বনী কুমার রায়, দ্বারকা নাথ রায়, মুকন্দ কুমার রায়, পরিমল চন্দ্র রায়, মিথুন চন্দ্র রায়, সুবাস চন্দ্র রায়, পদার চন্দ্র রায়, চাঁদখানা পরিবার",
+    "people": [
+      { "name": "হিমাংশু কুমার ডালিম", "name_en": "Himangshu Kumar Dalim", "father": "কুমুদ রঞ্জন রায়", "nid": "730637009757", "relation": "মালিক" },
+      { "name": "কেশব চন্দ্র রায়", "name_en": "Keshab Chandra Roy", "father": "তারক চন্দ্র রায়", "nid": "730637011297", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "পরিতোষ চন্দ্র রায়", "name_en": "Paritosh Chandra Roy", "father": "সুনীল চন্দ্র রায়", "nid": "730637010973", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "ব্রজেন্দ্র নাথ রায়", "name_en": "Brojendra Nath Roy", "father": "মহিন্দ্র নাথ রায়", "nid": "730637011275", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "দুলাল চন্দ্র রায়", "name_en": "Dulal Chandra Roy", "father": "কুলোদা মোহন রায়", "nid": "730637011280", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "আদেশ চন্দ্র রায়", "name_en": "Adesh Chandra Roy", "father": "তপন কুমার রায়", "nid": "730637011282", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "ভোলা নাথ রায়", "name_en": "Bhola Nath Roy", "father": "উপিন চন্দ্র রায়", "nid": "730637011285", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "অশ্বনী কুমার রায়", "name_en": "Ashwani Kumar Roy", "father": "নগেন্দ্র নাথ রায়", "nid": "730637011291", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "দ্বারকা নাথ রায়", "name_en": "Dwarka Nath Roy", "father": "কৃষ্ণ কান্ত রায়", "nid": "730637011292", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "মুকন্দ কুমার রায়", "name_en": "Mukunda Kumar Roy", "father": "চন্দ্র শেখর কুমার রায়", "nid": "730637011293", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "পরিমল চন্দ্র রায়", "name_en": "Parimal Chandra Roy", "father": "অনিল চন্দ্র রায়", "nid": "730637011294", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "মিথুন চন্দ্র রায়", "name_en": "Mithun Chandra Roy", "father": "দক্ষদা মোহন রায়", "nid": "730637996268", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "সুবাস চন্দ্র রায়", "name_en": "Subas Chandra Roy", "father": "হরিশ চন্দ্র রায়", "nid": "730637996450", "relation": "সংশ্লিষ্ট ব্যক্তি" },
+      { "name": "পদার চন্দ্র রায়", "name_en": "Podar Chandra Roy", "father": "কুষ্ট কান্ত রায়", "nid": "730637996246", "relation": "সংশ্লিষ্ট ব্যক্তি" }
+    ]
   },
   {
     "sl": 2,
@@ -320,7 +337,7 @@ const KHATIAN_DATA = [
     "dag_no": "২৩",
     "mouza": "উত্তর চাঁদখানা",
     "jl_no": "১২",
-    "upazila": "کিশোরগঞ্জ",
+    "upazila": "কিশোরগঞ্জ",
     "district": "নীলফামারী",
     "division": "রংপুর",
     "owner": "মোঃ জসিম উদ্দিন",

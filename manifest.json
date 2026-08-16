@@ -2,7 +2,7 @@
   "name": "Juwel Telecom E-Sheba",
   "short_name": "জুয়েল ই-সেবা",
   "description": "জুয়েল টেলিকম ব্যক্তিগত ই-সেবা পোর্টাল - NID ও নাগরিক তথ্য অনুসন্ধান পোর্টাল",
-  "start_url": "index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#1e3a8a",
@@ -26,5 +26,8 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "lang": "bn",
+  "id": "./",
+  "scope": "./"
 }
