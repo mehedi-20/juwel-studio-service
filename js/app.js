@@ -617,13 +617,18 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsGrid.innerHTML = '';
     if (matchedRecords.length > 0) renderNidResults(matchedRecords, q);
     const voterResults = collectVoterMatches(archiveHits, archiveTokens);
-    if (voterResults.length > 0) renderVoterCards(voterResults, archiveTokens);
-    renderArchiveSection(archiveHits, archiveTokens);
+    if (voterResults.length > 0) {
+      // ক্লিন ফলাফল: ভোটার কার্ড এলেই আর্কাইভ সেকশন দেখানোর দরকার নেই
+      hideArchiveSection();
+      renderVoterCards(voterResults, archiveTokens);
+    } else {
+      renderArchiveSection(archiveHits, archiveTokens);
+    }
 
     const parts = [];
     if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি তথ্য ডেটাবেজে পাওয়া গেছে`);
     if (voterResults.length) parts.push(`<span>${voterResults.length}</span> জন ভোটার PDF তালিকায় পাওয়া গেছে`);
-    if (archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি পিডিএফ আর্কাইভে পাওয়া গেছে`);
+    if (!voterResults.length && archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি PDF-এ শুধু টেক্সট মিলেছে`);
     statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
 
@@ -729,13 +734,18 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsGrid.innerHTML = '';
     if (matchedRecords.length > 0) renderPorchaResults(matchedRecords, q);
     const voterResults = collectVoterMatches(archiveHits, archiveTokens);
-    if (voterResults.length > 0) renderVoterCards(voterResults, archiveTokens);
-    renderArchiveSection(archiveHits, archiveTokens);
+    if (voterResults.length > 0) {
+      // ক্লিন ফলাফল: ভোটার কার্ড এলেই আর্কাইভ সেকশন দেখানোর দরকার নেই
+      hideArchiveSection();
+      renderVoterCards(voterResults, archiveTokens);
+    } else {
+      renderArchiveSection(archiveHits, archiveTokens);
+    }
 
     const parts = [];
     if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি খতিয়ান ডেটাবেজে পাওয়া গেছে`);
     if (voterResults.length) parts.push(`<span>${voterResults.length}</span> জন ভোটার PDF তালিকায় পাওয়া গেছে`);
-    if (archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি পিডিএফ আর্কাইভে পাওয়া গেছে`);
+    if (!voterResults.length && archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি PDF-এ শুধু টেক্সট মিলেছে`);
     statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
 
@@ -1017,92 +1027,30 @@ document.addEventListener('DOMContentLoaded', () => {
     lastArchiveResults = hits;
     archiveSection.style.display = 'block';
 
-    const voterMatchesFor = (e) => {
-      if (!Array.isArray(e.voters) || !e.voters.length || !tokens.length) return [];
-      const norms = Array.isArray(e.voterNorms) ? e.voterNorms : null;
-      return e.voters.filter((v, idx) => {
-        const hay = norms ? norms[idx] : normalize([v.name, v.voter_no, v.father, v.mother, v.dob, v.address, v.occupation].join(' '));
-        return tokens.every(t => hay.includes(t));
-      });
-    };
-
+    // ক্লিন কমপ্যাক্ট লিস্ট — শুধু ফাইলের নাম + ছোট স্নিপেট + PDF ডাউনলোড
     archiveGrid.innerHTML = hits.map((e, i) => {
-      const matchedVoters = voterMatchesFor(e);
-      const showVoters = matchedVoters.length > 0;
-      // OCR ভোটার থাকলে গার্বেজ নাম (যেমন "বাংলােদশ") না দেখিয়ে ক্লিন টাইটেল দেখাই
       const voterCount = (Array.isArray(e.voters) && e.voters.length) ? e.voters.length : 0;
-      const cardTitle = voterCount
+      const title = voterCount
         ? `ভোটার তালিকা (${asciiToBn(voterCount)} জন)`
-        : (e.name_bn || e.name || 'PDF আর্কাইভ');
-
+        : (e.name_bn || e.name || e.file_name || 'PDF');
       return `
-      <div class="premium-card" style="border-left: 4px solid #7c3aed;">
-        <div class="card-header-banner" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
-          <h3 class="card-title-main" title="${esc(cardTitle)}">${esc(cardTitle)}</h3>
-          <div class="card-badge" style="background: #6d28d9;">📦 আর্কাইভ</div>
-        </div>
-        <div class="card-body">
-          <div class="card-subtitle">
-            <span>${voterCount ? 'OCR-পড়া ভোটার তালিকা' : esc(e.name || 'PDF থেকে উদ্ধারকৃত')}</span>
-            <span>${esc(e.file_name || e.pdf)}</span>
-          </div>
-          ${e.nid ? `
-          <div class="card-nid-container" title="ক্লিক করে কপি করুন">
-            <div style="display:flex; flex-direction:column">
-              <span style="font-size:0.68rem; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">VOTER NO / NID</span>
-              <span class="card-nid-number">${esc(e.nid)}</span>
+      <div class="premium-card" style="border-left: 4px solid #7c3aed; padding: 14px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div style="min-width:0; flex:1;">
+            <div style="font-weight:800; color:#4c1d95; font-size:0.92rem;">${esc(title)}</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin:4px 0 8px;">📁 ${esc(e.file_name || e.pdf)}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); background:#fafafa; border:1px dashed var(--border); border-radius:8px; padding:6px 9px;">
+              ${voterCount ? `এই PDF-এর ${asciiToBn(voterCount)} জন ভোটারের নাম ও তথ্য পড়া হয়েছে — উপরে ফলাফল দেখুন` : archiveTextSnippet(e.text)}
             </div>
-            <button class="btn-copy" onclick="copyToClipboard('${esc(e.nid)}')">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>
-              কপি
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button class="btn btn-download-pdf" style="padding:7px 12px; font-size:0.75rem;" onclick="downloadArchivePdf('${esc(e.pdf)}')">
+              ⬇️ PDF ডাউনলোড
             </button>
           </div>
-          ` : ''}
-          ${showVoters ? `
-          <div style="font-size:0.8rem; color:#065f46; background:#ecfdf5; border:1.5px solid #86efac; border-radius:8px; padding:8px 10px; margin-bottom:12px;">
-            <b style="color:#15803d;">✅ ভোটার তালিকায় মিলেছে (${asciiToBn(matchedVoters.length)} জন)</b>
-            <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
-              ${matchedVoters.slice(0, 8).map(v => `
-                <div style="font-size:0.78rem;">
-                  <b>${esc(v.name)}</b>${v.father ? ' — পিতা: ' + esc(v.father) : ''}${v.voter_no ? ' <code style="font-size:0.72rem;">' + esc(v.voter_no) + '</code>' : ''}
-                </div>
-              `).join('')}
-              ${matchedVoters.length > 8 ? `<div style="font-size:0.72rem; color:#15803d; font-weight:700;">… আরও ${asciiToBn(matchedVoters.length - 8)} জন — নিচের "ভোটার তালিকা দেখুন" বাটনে ক্লিক করুন</div>` : ''}
-            </div>
-          </div>
-          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
-            📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
-          </div>` : `
-          <div style="font-size:0.8rem; color:var(--text-muted); background:#f8fafc; border:1px dashed var(--border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
-            <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট (প্রথমাংশ):</b> ${archiveTextSnippet(e.text)}
-            ${String(e.text || '').length > 300 ? '<div style="margin-top:6px; font-size:0.72rem; color:#7c3aed; font-weight:700;">বাকি অংশ দেখতে নিচের "👁️ টেক্সট দেখুন" বাটনে ক্লিক করুন</div>' : ''}
-          </div>
-          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
-            📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
-          </div>`}
-          ${(Array.isArray(e.override_names) && e.override_names.length && !voterCount) ? `
-          <div style="margin-bottom:12px;">
-            <div style="font-size:0.75rem; font-weight:800; color:#15803d; margin-bottom:6px;">✅ সঠিক নাম (প্রথম ${asciiToBn(Math.min(e.override_names.length, 20))}টি):</div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px; max-height: 120px; overflow-y:auto;">
-              ${e.override_names.slice(0, 20).map(n => `<button class="archive-name-chip" style="border-color:#86efac; color:#15803d;" onclick="searchArchiveName('${esc(n)}')">${esc(n)}</button>`).join('')}
-            </div>
-            ${e.override_names.length > 20 ? `<div style="font-size:0.72rem; color:#15803d; margin-top:4px;">… আরও ${asciiToBn(e.override_names.length - 20)} টি — নিচের "ভোটার তালিকা দেখুন" বাটনে দেখুন</div>` : ''}
-          </div>` : ''}
-          ${(typeof PDF_VOTER_ENTRIES !== 'undefined' && Array.isArray(PDF_VOTER_ENTRIES[e.pdf]) && PDF_VOTER_ENTRIES[e.pdf].length) ? `
-          <button class="btn btn-secondary" onclick="openVoterList('${esc(e.pdf)}')" style="width:100%; padding:9px; font-size:0.8rem; font-weight:800; margin-bottom:12px; border-color:#86efac; color:#15803d;">
-            👥 ভোটার তালিকা দেখুন (${asciiToBn(PDF_VOTER_ENTRIES[e.pdf].length)} জন) — নাম, ভোটার নং, পিতাসহ
-          </button>` : ''}
-        </div>
-        <div class="card-actions">
-          <button class="btn btn-primary btn-view-pdf" onclick="openArchiveViewer('${i}')">
-            👁️ টেক্সট দেখুন
-          </button>
-          <button class="btn btn-download-pdf" onclick="downloadArchivePdf('${esc(e.pdf)}')">
-            ⬇️ PDF ডাউনলোড
-          </button>
         </div>
       </div>
-    `;
+      `;
     }).join('');
   }
 
