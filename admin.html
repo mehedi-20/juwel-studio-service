@@ -186,6 +186,7 @@
         <div class="tabs-menu">
           <button id="tabNidForm" class="tab-btn active-tab">🆔 ভোটার / NID তথ্য আপলোড</button>
           <button id="tabPorchaForm" class="tab-btn">📄 ই-পর্চা / খতিয়ান তথ্য আপলোড</button>
+          <button id="tabBulkForm" class="tab-btn">📥 বাল্ক ইমপোর্ট (একসাথে অনেক)</button>
         </div>
 
         <!-- 1. NID Upload Form -->
@@ -369,6 +370,42 @@
           </button>
         </form>
 
+      </div>
+
+      <!-- 3. Bulk Import Form (একসাথে হাজারো রেকর্ড) -->
+      <div id="bulkImportPanel" style="display: none;">
+        <div class="form-field">
+          <label>কী ইমপোর্ট করবেন? <span class="required">*</span></label>
+          <select id="bulk_type">
+            <option value="nid">🆔 ভোটার / NID তালিকা</option>
+            <option value="khatian">📄 খতিয়ান তালিকা</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label>CSV ফাইল আপলোড <span class="optional">(ঐচ্ছিক — নিচে পেস্ট না করলে)</span></label>
+          <div class="file-upload-box">
+            <span id="bulkFileLabel">📁 Excel/CSV ফাইল সিলেক্ট করুন (.csv)</span>
+            <input type="file" id="bulk_file" accept=".csv,.txt,text/csv">
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>অথবা CSV টেক্সট পেস্ট করুন <span class="optional">(প্রথম লাইনে হেডার থাকতে হবে)</span></label>
+          <textarea id="bulk_csv" rows="8" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: monospace; outline: none; width: 100%;" placeholder="এখানে CSV ডেটা পেস্ট করুন..."></textarea>
+        </div>
+
+        <div class="bulk-help">
+          <b>📋 CSV হেডার (ইংরেজি):</b><br>
+          <code>NID:</code> sl,name,name_en,nid,father,mother,dob,village,union,post,upazila,district,occupation,gender<br>
+          <code>খতিয়ান:</code> khatian_no,dag_no,owner,father,mouza,jl_no,upazila,district,division,land_type,area,search_text<br>
+          <small style="color:var(--text-muted)">হেডারের পরে প্রতিটি লাইনে একজন ব্যক্তির তথ্য কমা (,) দিয়ে আলাদা করে লিখুন। বাংলা হেডারও চলবে।</small>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnBulkImport" style="margin-top:16px; height: 48px;">
+          📥 ইমপোর্ট করুন
+        </button>
+        <div id="bulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
       </div>
 
       <!-- Manage Section / Show lists -->

@@ -1062,6 +1062,27 @@ mark {
   font-weight: 700;
 }
 
+/* বাল্ক ইমপোর্ট সহায়তা বক্স */
+.bulk-help {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid var(--secondary);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.bulk-help code {
+  background: #e0f2fe;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.75rem;
+}
+
 /* Required marker inside admin form labels */
 .form-field label .required {
   color: var(--accent);

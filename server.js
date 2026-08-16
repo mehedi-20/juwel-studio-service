@@ -48,6 +48,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // বাল্ক ইমপোর্ট (একসাথে অনেক রেকর্ড — ভোটার তালিকা ইত্যাদি)
+  if (req.method === 'POST' && pathname === '/api/bulk-import') {
+    handleBulkImport(req, res);
+    return;
+  }
+
   // Resolve the requested path strictly inside the project root
   // (normalize neutralizes ../ traversal attempts)
   const filePath = path.normalize(path.join(ROOT, pathname));
@@ -134,6 +140,103 @@ function rebuildTextIndex() {
   child.on('error', (err) => {
     textIndexRebuildQueued = false;
     console.warn('[Upload] PDF index rebuild failed:', err.message);
+  });
+}
+
+function handleBulkImport(req, res) {
+  let raw = '';
+  req.on('data', (chunk) => {
+    raw += chunk;
+    if (raw.length > MAX_UPLOAD_BYTES + 1024 * 1024) {
+      sendJson(res, 413, { ok: false, error: 'ডেটা খুব বড়' });
+      req.destroy();
+    }
+  });
+
+  req.on('end', () => {
+    try {
+      const payload = JSON.parse(raw || '{}');
+      const { type, records } = payload;
+      if (type !== 'nid' && type !== 'khatian') {
+        return sendJson(res, 400, { ok: false, error: 'ভুল টাইপ' });
+      }
+      if (!Array.isArray(records) || records.length === 0) {
+        return sendJson(res, 400, { ok: false, error: 'কোনো রেকর্ড নেই' });
+      }
+      if (records.length > 20000) {
+        return sendJson(res, 400, { ok: false, error: 'একসাথে সর্বোচ্চ ২০০০০ রেকর্ড' });
+      }
+
+      const existing = readUploadedRecords();
+      let added = 0, skipped = 0;
+      const now = new Date().toISOString();
+
+      for (const r of records) {
+        if (!r || typeof r !== 'object') { skipped++; continue; }
+        if (type === 'nid') {
+          if (!r.nid || !r.name) { skipped++; continue; }
+          const dup = existing.some(e => e.type === 'nid' && String(e.nid) === String(r.nid)) ||
+            (() => { try { const d = fs.readFileSync(path.join(ROOT, 'js', 'data.js'), 'utf8'); return d.includes('"nid": "' + String(r.nid) + '"'); } catch (e) { return false; } })();
+          if (dup) { skipped++; continue; }
+          existing.push({
+            type: 'nid',
+            sl: r.sl || (existing.length + 1),
+            name: String(r.name || '').trim(),
+            name_en: String(r.name_en || '').trim(),
+            nid: String(r.nid).trim(),
+            father: String(r.father || '').trim(),
+            mother: String(r.mother || '').trim(),
+            dob: String(r.dob || '').trim(),
+            village: String(r.village || '').trim(),
+            union: String(r.union || 'গড়াগ্রাম').trim(),
+            post: String(r.post || '').trim(),
+            upazila: String(r.upazila || 'কিশোরগঞ্জ').trim(),
+            district: String(r.district || 'নীলফামারী').trim(),
+            phone: String(r.phone || '01738782255').trim(),
+            voter_no: String(r.voter_no || r.nid).trim(),
+            gender: String(r.gender || '').trim(),
+            occupation: String(r.occupation || '').trim(),
+            search_text: String(r.search_text || '').trim(),
+            pdf: String(r.pdf || 'pdfs/fallback.pdf').trim(),
+            uploadedAt: now
+          });
+          added++;
+        } else {
+          if (!r.khatian_no || !r.mouza) { skipped++; continue; }
+          const dup = existing.some(e => e.type === 'khatian' && String(e.khatian_no) === String(r.khatian_no) && String(e.mouza) === String(r.mouza)) ||
+            (() => { try { const d = fs.readFileSync(path.join(ROOT, 'js', 'data.js'), 'utf8'); return d.includes('"khatian_no": "' + String(r.khatian_no) + '"'); } catch (e) { return false; } })();
+          if (dup) { skipped++; continue; }
+          existing.push({
+            type: 'khatian',
+            sl: r.sl || (existing.length + 1),
+            khatian_no: String(r.khatian_no).trim(),
+            dag_no: String(r.dag_no || '').trim(),
+            owner: String(r.owner || '').trim(),
+            father: String(r.father || '').trim(),
+            mouza: String(r.mouza).trim(),
+            jl_no: String(r.jl_no || '১২').trim(),
+            upazila: String(r.upazila || 'কিশোরগঞ্জ').trim(),
+            district: String(r.district || 'নীলফামারী').trim(),
+            division: String(r.division || 'রংপুর').trim(),
+            land_type: String(r.land_type || '').trim(),
+            area: String(r.area || '').trim(),
+            search_text: String(r.search_text || '').trim(),
+            people: Array.isArray(r.people) ? r.people : [],
+            pdf: String(r.pdf || 'pdfs/fallback.pdf').trim(),
+            uploadedAt: now
+          });
+          added++;
+        }
+      }
+
+      writeUploadedRecords(existing);
+      rebuildTextIndex();
+      console.log(`[BulkImport] ${type}: +${added} নতুন, ${skipped} বাদ`);
+      sendJson(res, 200, { ok: true, added, skipped });
+    } catch (e) {
+      console.error('[BulkImport] Error:', e);
+      sendJson(res, 500, { ok: false, error: 'বাল্ক ইমপোর্ট ব্যর্থ: ' + e.message });
+    }
   });
 }
 

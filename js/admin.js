@@ -89,31 +89,27 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ==========================================================================
      2. Tab Switching between Forms
      ========================================================================== */
-  let currentAdminTab = 'nid'; // 'nid' or 'porcha'
+  let currentAdminTab = 'nid'; // 'nid' | 'porcha' | 'bulk'
   const tabNidForm = document.getElementById('tabNidForm');
   const tabPorchaForm = document.getElementById('tabPorchaForm');
+  const tabBulkForm = document.getElementById('tabBulkForm');
   const nidUploadForm = document.getElementById('nidUploadForm');
   const porchaUploadForm = document.getElementById('porchaUploadForm');
+  const bulkImportPanel = document.getElementById('bulkImportPanel');
 
-  if (tabNidForm && tabPorchaForm) {
-    tabNidForm.addEventListener('click', () => {
-      if (currentAdminTab === 'nid') return;
-      currentAdminTab = 'nid';
-      tabNidForm.classList.add('active-tab');
-      tabPorchaForm.classList.remove('active-tab');
-      if (nidUploadForm) nidUploadForm.style.display = 'block';
-      if (porchaUploadForm) porchaUploadForm.style.display = 'none';
-    });
+  const showAdminTab = (tab) => {
+    currentAdminTab = tab;
+    [tabNidForm, tabPorchaForm, tabBulkForm].forEach(b => b && b.classList.remove('active-tab'));
+    const activeBtn = tab === 'nid' ? tabNidForm : tab === 'porcha' ? tabPorchaForm : tabBulkForm;
+    if (activeBtn) activeBtn.classList.add('active-tab');
+    if (nidUploadForm) nidUploadForm.style.display = tab === 'nid' ? 'block' : 'none';
+    if (porchaUploadForm) porchaUploadForm.style.display = tab === 'porcha' ? 'block' : 'none';
+    if (bulkImportPanel) bulkImportPanel.style.display = tab === 'bulk' ? 'block' : 'none';
+  };
 
-    tabPorchaForm.addEventListener('click', () => {
-      if (currentAdminTab === 'porcha') return;
-      currentAdminTab = 'porcha';
-      tabPorchaForm.classList.add('active-tab');
-      tabNidForm.classList.remove('active-tab');
-      if (porchaUploadForm) porchaUploadForm.style.display = 'block';
-      if (nidUploadForm) nidUploadForm.style.display = 'none';
-    });
-  }
+  if (tabNidForm) tabNidForm.addEventListener('click', () => showAdminTab('nid'));
+  if (tabPorchaForm) tabPorchaForm.addEventListener('click', () => showAdminTab('porcha'));
+  if (tabBulkForm) tabBulkForm.addEventListener('click', () => showAdminTab('bulk'));
 
 
   /* ==========================================================================
@@ -150,6 +146,146 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+
+  /* ==========================================================================
+     3.5 বাল্ক ইমপোর্ট (একসাথে অনেক রেকর্ড — ভোটার তালিকা ইত্যাদি)
+     ========================================================================== */
+  const bulkFile = document.getElementById('bulk_file');
+  const bulkFileLabel = document.getElementById('bulkFileLabel');
+  const bulkType = document.getElementById('bulk_type');
+  const bulkCsv = document.getElementById('bulk_csv');
+  const btnBulkImport = document.getElementById('btnBulkImport');
+  const bulkResult = document.getElementById('bulkResult');
+
+  if (bulkFile && bulkFileLabel) {
+    bulkFile.addEventListener('change', () => {
+      const f = bulkFile.files[0];
+      bulkFileLabel.textContent = f ? '✓ ফাইল নির্বাচিত: ' + f.name : '📁 Excel/CSV ফাইল সিলেক্ট করুন (.csv)';
+    });
+  }
+
+  // বাংলা হেডার → ইংরেজি কী ম্যাপ
+  const HEADER_MAP = {
+    'ক্রমিক': 'sl', 'ক্রম': 'sl', 'serial': 'sl', 'sl': 'sl',
+    'নাম': 'name', 'name': 'name', 'নাম (ইংরেজি)': 'name_en', 'name_en': 'name_en', 'english name': 'name_en',
+    'nid': 'nid', 'nid নম্বর': 'nid', 'nid no': 'nid', 'ভোটার নং': 'nid', 'voter_no': 'voter_no', 'ভোটার নম্বর': 'nid',
+    'পিতা': 'father', 'father': 'father', 'পিতার নাম': 'father', "father's name": 'father',
+    'মাতা': 'mother', 'mother': 'mother', 'মাতার নাম': 'mother', "mother's name": 'mother',
+    'জন্ম তারিখ': 'dob', 'dob': 'dob', 'date of birth': 'dob',
+    'গ্রাম': 'village', 'village': 'village',
+    'ইউনিয়ন': 'union', 'union': 'union',
+    'ডাকঘর': 'post', 'post': 'post',
+    'উপজেলা': 'upazila', 'upazila': 'upazila',
+    'জেলা': 'district', 'district': 'district',
+    'বিভাগ': 'division', 'division': 'division',
+    'পেশা': 'occupation', 'occupation': 'occupation',
+    'লিঙ্গ': 'gender', 'gender': 'gender',
+    'ফোন': 'phone', 'phone': 'phone',
+    'খতিয়ান নং': 'khatian_no', 'khatian_no': 'khatian_no', 'খতিয়ান নম্বর': 'khatian_no',
+    'দাগ নং': 'dag_no', 'dag_no': 'dag_no', 'দাগ নম্বর': 'dag_no',
+    'মালিক': 'owner', 'owner': 'owner', 'মালিকের নাম': 'owner',
+    'মৌজা': 'mouza', 'mouza': 'mouza',
+    'জে. এল. নং': 'jl_no', 'jl_no': 'jl_no', 'j.l. no': 'jl_no',
+    'জমির শ্রেণী': 'land_type', 'land_type': 'land_type', 'শ্রেণী': 'land_type',
+    'জমির পরিমাণ': 'area', 'area': 'area', 'পরিমাণ': 'area',
+    'অন্যান্য নাম': 'search_text', 'search_text': 'search_text', 'কীওয়ার্ড': 'search_text',
+    'pdf': 'pdf'
+  };
+
+  function parseCsv(text) {
+    const rows = [];
+    // সহজ CSV পার্সার (কোটেড কমাও সাপোর্ট করে)
+    let row = [], cell = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQ) {
+        if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+        else cell += c;
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === ',' || c === '\t') { row.push(cell.trim()); cell = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(cell.trim()); cell = '';
+          if (row.some(x => x !== '')) rows.push(row);
+          row = [];
+        } else cell += c;
+      }
+    }
+    if (cell !== '' || row.length) { row.push(cell.trim()); if (row.some(x => x !== '')) rows.push(row); }
+    return rows;
+  }
+
+  function mapHeader(h) {
+    const key = String(h || '').trim().toLowerCase();
+    return HEADER_MAP[key] || key.replace(/[^a-z0-9_]/g, '_');
+  }
+
+  if (btnBulkImport) {
+    btnBulkImport.addEventListener('click', async () => {
+      const type = bulkType ? bulkType.value : 'nid';
+      let csvText = bulkCsv ? bulkCsv.value.trim() : '';
+
+      if (!csvText && bulkFile && bulkFile.files[0]) {
+        csvText = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => resolve('');
+          reader.readAsText(bulkFile.files[0]);
+        });
+      }
+
+      if (!csvText) {
+        if (bulkResult) bulkResult.textContent = '⚠️ CSV ফাইল দিন অথবা টেক্সট পেস্ট করুন';
+        return;
+      }
+
+      const rows = parseCsv(csvText);
+      if (rows.length < 2) {
+        if (bulkResult) bulkResult.textContent = '⚠️ অন্তত হেডার + ১ লাইন ডেটা দিন';
+        return;
+      }
+
+      const headers = rows[0].map(mapHeader);
+      const records = [];
+      for (let i = 1; i < rows.length; i++) {
+        const rec = {};
+        rows[i].forEach((val, ci) => {
+          const key = headers[ci];
+          if (key && val !== '') rec[key] = val;
+        });
+        if (Object.keys(rec).length) records.push(rec);
+      }
+
+      if (!records.length) {
+        if (bulkResult) bulkResult.textContent = '⚠️ কোনো ডেটা পাওয়া যায়নি';
+        return;
+      }
+
+      try {
+        if (bulkResult) bulkResult.textContent = '📥 ইমপোর্ট হচ্ছে, দয়া করে অপেক্ষা করুন...';
+        const resp = await fetch('/api/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, records })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+        if (bulkResult) {
+          bulkResult.style.color = 'var(--success)';
+          bulkResult.textContent = `✓ সফল! ${data.added} টি নতুন রেকর্ড যোগ হয়েছে${data.skipped ? ' (' + data.skipped + ' টি ডুপ্লিকেট/ভুল থাকায় বাদ)' : ''}`;
+        }
+        if (bulkCsv) bulkCsv.value = '';
+        showToast('বাল্ক ইমপোর্ট সফল হয়েছে! ✓');
+      } catch (err) {
+        console.error('[BulkImport] Error:', err);
+        if (bulkResult) {
+          bulkResult.style.color = 'var(--accent)';
+          bulkResult.textContent = 'ইমপোর্ট ব্যর্থ: ' + err.message;
+        }
+      }
+    });
+  }
 
   /* ==========================================================================
      4. Firebase Integration & Forms Submission
