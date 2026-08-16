@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const UPLOADS_FILE = path.join(ROOT, 'js', 'data-uploads.js');
+const OVERRIDES_FILE = path.join(ROOT, 'js', 'pdf-name-overrides.js');
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 
 const MIME_TYPES = {
@@ -57,6 +58,16 @@ const server = http.createServer((req, res) => {
   // বাল্ক PDF আপলোড (একসাথে অনেক PDF — খতিয়ান/ভোটার তালিকার স্ক্যান)
   if (req.method === 'POST' && pathname === '/api/bulk-pdf-upload') {
     handleBulkPdfUpload(req, res);
+    return;
+  }
+
+  // PDF তালিকা + নাম-ওভাররাইড (অ্যাডমিনের নাম সংশোধন টুলের জন্য)
+  if (req.method === 'GET' && pathname === '/api/pdf-list') {
+    handlePdfList(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/pdf-names') {
+    handlePdfNames(req, res);
     return;
   }
 
@@ -149,7 +160,66 @@ function rebuildTextIndex() {
   });
 }
 
-function handleBulkPdfUpload(req, res) {
+function readOverrides() {
+  try {
+    const src = fs.readFileSync(OVERRIDES_FILE, 'utf8');
+    const start = src.indexOf('{');
+    const end = src.lastIndexOf('}');
+    if (start === -1 || end === -1) return {};
+    return JSON.parse(src.slice(start, end + 1));
+  } catch (e) {
+    console.warn('[Overrides] read error:', e.message);
+    return {};
+  }
+}
+
+function writeOverrides(obj) {
+  const header = '// ⚠️ অ্যাডমিন প্যানেল থেকে দেওয়া সঠিক নামের তালিকা — সার্ভার নিজে থেকে লিখে\n';
+  fs.writeFileSync(OVERRIDES_FILE, header + 'const PDF_NAME_OVERRIDES = ' + JSON.stringify(obj, null, 2) + ';\n');
+}
+
+function handlePdfList(req, res) {
+  try {
+    const overrides = readOverrides();
+    const files = fs.readdirSync(path.join(ROOT, 'pdfs'))
+      .filter(f => f.endsWith('.pdf'))
+      .sort()
+      .map(f => ({
+        pdf: 'pdfs/' + f,
+        file_name: f,
+        size: fs.statSync(path.join(ROOT, 'pdfs', f)).size,
+        names: overrides['pdfs/' + f] || []
+      }));
+    sendJson(res, 200, { ok: true, files, overrides });
+  } catch (e) {
+    sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+function handlePdfNames(req, res) {
+  let raw = '';
+  req.on('data', (c) => { raw += c; });
+  req.on('end', () => {
+    try {
+      const payload = JSON.parse(raw || '{}');
+      const pdf = String(payload.pdf || '');
+      const names = Array.isArray(payload.names) ? payload.names.map(n => String(n).trim()).filter(Boolean) : [];
+      if (!pdf || !pdf.startsWith('pdfs/') || !fs.existsSync(path.join(ROOT, pdf))) {
+        return sendJson(res, 400, { ok: false, error: 'ভুল PDF পাথ' });
+      }
+      if (names.length > 1000) return sendJson(res, 400, { ok: false, error: 'সর্বোচ্চ ১০০০ নাম' });
+      const overrides = readOverrides();
+      overrides[pdf] = names;
+      writeOverrides(overrides);
+      console.log(`[Overrides] ${pdf}: ${names.length} টি নাম সেভ হয়েছে`);
+      sendJson(res, 200, { ok: true, count: names.length });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+async function handleBulkPdfUpload(req, res) {
   const MAX_PDF_UPLOAD = 120 * 1024 * 1024; // 120 MB per request
   let raw = '';
   req.on('data', (chunk) => {
@@ -160,7 +230,7 @@ function handleBulkPdfUpload(req, res) {
     }
   });
 
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const payload = JSON.parse(raw || '{}');
       const files = Array.isArray(payload.files) ? payload.files : [];
@@ -187,11 +257,19 @@ function handleBulkPdfUpload(req, res) {
           fs.writeFileSync(path.join(ROOT, 'pdfs', finalName), buf);
 
           // টেক্সট লেয়ার আছে কিনা (স্ক্যান করা PDF-এ থাকে না)
+          // আসল eporcha PDF-এ কনটেন্ট কমপ্রেসড থাকে, তাই pdf-parse দিয়ে চেক করা হয়
           let hasText = false;
           try {
-            const text = buf.toString('latin1');
-            const matches = text.match(/\(([^()]*)\)\s*Tj/g) || [];
-            hasText = matches.join(' ').replace(/\s/g, '').length > 0;
+            let pdfParse = null;
+            try { pdfParse = require('pdf-parse'); } catch (e) { pdfParse = null; }
+            if (pdfParse) {
+              hasText = await pdfParse(buf).then(d => String(d.text || '').trim().length > 10).catch(() => false);
+            }
+            if (!hasText) {
+              const text = buf.toString('latin1');
+              const matches = text.match(/\(([^()]*)\)\s*Tj/g) || [];
+              hasText = matches.join(' ').replace(/\s/g, '').length > 0;
+            }
           } catch (e) { /* ignore */ }
 
           saved.push({ name: finalName, hasText });

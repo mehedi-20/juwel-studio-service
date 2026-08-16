@@ -14,11 +14,19 @@ const pdfTextOf = (pdfPath) =>
 // যে PDF গুলোর কোনো রেকর্ড ডেটাবেজে নেই — সেগুলো "আর্কাইভ"
 const getArchiveEntries = () => {
   if (typeof PDF_TEXT_INDEX === 'undefined') return [];
-  return PDF_TEXT_INDEX.filter(e =>
-    !DATA.some(r => r.pdf === e.pdf) &&
-    !KHATIAN_DATA.some(r => r.pdf === e.pdf) &&
-    !(typeof UPLOADED_RECORDS !== 'undefined' && UPLOADED_RECORDS.some(r => r.pdf === e.pdf))
-  );
+  return PDF_TEXT_INDEX
+    .filter(e =>
+      !DATA.some(r => r.pdf === e.pdf) &&
+      !KHATIAN_DATA.some(r => r.pdf === e.pdf) &&
+      !(typeof UPLOADED_RECORDS !== 'undefined' && UPLOADED_RECORDS.some(r => r.pdf === e.pdf))
+    )
+    .map(e => {
+      // অ্যাডমিনের দেওয়া সঠিক নামগুলো সার্চে যোগ
+      const extra = (typeof PDF_NAME_OVERRIDES !== 'undefined' && Array.isArray(PDF_NAME_OVERRIDES[e.pdf]))
+        ? PDF_NAME_OVERRIDES[e.pdf].join(' ')
+        : '';
+      return extra ? { ...e, override_names: PDF_NAME_OVERRIDES[e.pdf], text: e.text + ' ' + extra } : e;
+    });
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -879,6 +887,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="font-size:0.75rem; font-weight:800; color:var(--primary); margin-bottom:6px;">👥 সম্ভাব্য ব্যক্তির নাম (${asciiToBn(e.names.length)} টি) — ক্লিক করলে খুঁজবে:</div>
             <div style="display:flex; flex-wrap:wrap; gap:6px;">
               ${e.names.map(n => `<button class="archive-name-chip" onclick="searchArchiveName('${esc(n)}')">${esc(n)}</button>`).join('')}
+            </div>
+          </div>` : ''}
+          ${(Array.isArray(e.override_names) && e.override_names.length) ? `
+          <div style="margin-bottom:12px;">
+            <div style="font-size:0.75rem; font-weight:800; color:#15803d; margin-bottom:6px;">✅ সঠিক নামের তালিকা (${asciiToBn(e.override_names.length)} টি):</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${e.override_names.map(n => `<button class="archive-name-chip" style="border-color:#86efac; color:#15803d;" onclick="searchArchiveName('${esc(n)}')">${esc(n)}</button>`).join('')}
             </div>
           </div>` : ''}
         </div>

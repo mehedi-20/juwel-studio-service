@@ -86,6 +86,27 @@ function guessName(lines) {
   return '';
 }
 
+// ভোটার তালিকার এন্ট্রি বের করা: ক্রমিক, নাম, ভোটার নং
+// eporcha ফরম্যাট: "০০০১. নাম: ... ভোটার নং: ৭৩০৬৫৯০৩৬৭৬৮ পিতা: ... মাতা: ..."
+function extractVoters(lines) {
+  const voters = [];
+  const joined = lines.join(' ');
+  const entryRe = /(\d{4})\.[^\d]{0,60}?নাম:\s*([^\n]{2,60}?)ভাটার\s*(?:নং|সংখ্যা)\s*[:]?\s*([০-৯]{10,17})/g;
+  let m;
+  while ((m = entryRe.exec(joined))) {
+    voters.push({ serial: m[1], name: m[2].trim(), voter_no: m[3] });
+    if (voters.length >= 400) break;
+  }
+  if (voters.length) return voters;
+  // বিকল্প: শুধু ভোটার নং + আগের নাম-লাইন
+  const numRe = /নাম:\s*([^\d]{2,60}?)ভাটার\s*(?:নং|সংখ্যা)\s*[:]?\s*([০-৯]{10,17})/g;
+  while ((m = numRe.exec(joined))) {
+    voters.push({ serial: '', name: m[1].trim(), voter_no: m[2] });
+    if (voters.length >= 400) break;
+  }
+  return voters;
+}
+
 // বাংলা টেক্সট থেকে সম্ভাব্য ব্যক্তির নাম বের করা (হিউরিস্টিক)
 function extractCandidateNames(text) {
   const found = new Set();
@@ -116,9 +137,11 @@ function extractCandidateNames(text) {
     const nameBn = NAME_BN_OVERRIDES[file] || '';
     const fileStem = file.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ');
     const names = extractCandidateNames(lines.join(' ') + ' ' + nameBn);
-    const text = [fileStem, ...lines, nameBn, ...names].filter(Boolean).join(' ');
-    entries.push({ pdf: `pdfs/${file}`, file_name: file, name, name_bn: nameBn, nid, names, text });
-    console.log('✓', file, names.length ? `→ ${names.length} টি সম্ভাব্য নাম` : '(টেক্সট লেয়ার নেই বা নাম পাওয়া যায়নি)');
+    const voters = extractVoters(lines);
+    const voterText = voters.map(v => [v.serial, v.name, v.voter_no].filter(Boolean).join(' ')).join(' ');
+    const text = [fileStem, ...lines, nameBn, ...names, voterText].filter(Boolean).join(' ');
+    entries.push({ pdf: `pdfs/${file}`, file_name: file, name, name_bn: nameBn, nid, names, voters, text });
+    console.log('✓', file, voters.length ? `→ ${voters.length} জন ভোটার` : (names.length ? `→ ${names.length} টি সম্ভাব্য নাম` : '(টেক্সট লেয়ার নেই বা নাম পাওয়া যায়নি)'));
   }
 
   const header = `// ⚠️ স্বয়ংক্রিয়ভাবে তৈরি ফাইল — নিজে এডিট করবেন না।

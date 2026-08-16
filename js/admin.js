@@ -386,6 +386,78 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================================
+     3.7 PDF নাম-ওভাররাইড (ভাঙা ফন্টের জায়গায় সঠিক নাম)
+     ========================================================================== */
+  const overrideSelect = document.getElementById('override_pdf_select');
+  const overrideNames = document.getElementById('override_names');
+  const btnSaveOverrides = document.getElementById('btnSaveOverrides');
+  const overrideResult = document.getElementById('overrideResult');
+
+  let pdfListCache = [];
+
+  async function loadPdfList() {
+    try {
+      const resp = await fetch('/api/pdf-list');
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'তালিকা লোড হয়নি');
+      pdfListCache = data.files || [];
+      if (overrideSelect) {
+        overrideSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' +
+          pdfListCache.map(f =>
+            `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${(f.names && f.names.length) ? ' ✓(' + f.names.length + ' নাম)' : ''}</option>`
+          ).join('');
+        overrideSelect.addEventListener('change', () => {
+          const f = pdfListCache.find(x => x.pdf === overrideSelect.value);
+          if (overrideNames) overrideNames.value = (f && f.names) ? f.names.join('\n') : '';
+        });
+      }
+    } catch (e) {
+      console.warn('[Overrides] list error:', e);
+      if (overrideSelect) overrideSelect.innerHTML = '<option value="">তালিকা লোড করা যায়নি (সার্ভার চালু আছে তো?)</option>';
+    }
+  }
+
+  if (btnSaveOverrides) {
+    btnSaveOverrides.addEventListener('click', async () => {
+      const pdf = overrideSelect ? overrideSelect.value : '';
+      if (!pdf) {
+        if (overrideResult) overrideResult.textContent = '⚠️ আগে একটি PDF বেছে নিন';
+        return;
+      }
+      const raw = overrideNames ? overrideNames.value : '';
+      const names = raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+      try {
+        if (overrideResult) overrideResult.textContent = '💾 সেভ হচ্ছে...';
+        const resp = await fetch('/api/pdf-names', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdf, names })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+        if (overrideResult) {
+          overrideResult.style.color = 'var(--success)';
+          overrideResult.textContent = '✓ ' + data.count + ' টি নাম সেভ হয়েছে — এখন এই নামগুলো দিয়ে সার্চ হবে';
+        }
+        showToast('নামের তালিকা সেভ হয়েছে ✓');
+        loadPdfList();
+      } catch (e) {
+        console.error('[Overrides] save error:', e);
+        if (overrideResult) {
+          overrideResult.style.color = 'var(--accent)';
+          overrideResult.textContent = 'সেভ ব্যর্থ: ' + e.message;
+        }
+      }
+    });
+  }
+
+  // বাল্ক ট্যাব খুললে তালিকা লোড
+  if (tabBulkForm) {
+    const origBulkClick = tabBulkForm.onclick;
+    tabBulkForm.addEventListener('click', () => { loadPdfList(); });
+  }
+
+  /* ==========================================================================
      4. Firebase Integration & Forms Submission
      ========================================================================== */
   let db, storage;

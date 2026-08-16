@@ -430,6 +430,34 @@
           ⬆️ সব PDF আপলোড করুন
         </button>
         <div id="pdfBulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: var(--primary); margin-bottom: 10px;">✏️ PDF-এর সঠিক নাম বসানো (ভাঙা ফন্ট ঠিক করতে)</h4>
+
+        <div class="bulk-help" style="border-left-color: var(--secondary);">
+          <b>কেন দরকার:</b> কিছু PDF (বিশেষ করে ভোটার তালিকা) থেকে নাম ভাঙা অক্ষরে আসে (যেমন: <code>sরীফা</code> → <code>শরীফা</code>)। নিচের তালিকা থেকে PDF বেছে নিয়ে সঠিক নামগুলো লিখে সেভ করলে, ওই নামগুলো দিয়ে নিখুঁতভাবে সার্চ করা যাবে।<br>
+          <small style="color:var(--text-muted)">প্রতিটা নাম আলাদা লাইনে লিখুন (অথবা কমা দিয়ে আলাদা করুন)।</small>
+        </div>
+
+        <div class="form-group-row" style="margin-top:14px;">
+          <div class="form-field">
+            <label>PDF ফাইল বেছে নিন</label>
+            <select id="override_pdf_select" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: inherit;">
+              <option value="">-- লোড হচ্ছে... --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>সঠিক নামের তালিকা (এক লাইনে এক নাম)</label>
+          <textarea id="override_names" rows="8" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.88rem; font-family: inherit; outline: none; width: 100%;" placeholder="মোছাঃ শরীফা বেগম&#10;মোছাঃ শেফালী বেগম&#10;..."></textarea>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnSaveOverrides" style="margin-top:10px; height: 44px;">
+          💾 নামের তালিকা সেভ করুন
+        </button>
+        <div id="overrideResult" style="margin-top: 10px; font-size: 0.85rem; font-weight: 700;"></div>
       </div>
 
       <!-- Manage Section / Show lists -->
