@@ -39,6 +39,8 @@ function renderPageToPng(page, scale = 3.0) {
 }
 
 // OCR টেক্সট থেকে ভোটার এন্ট্রি পার্স (৩-কলাম লেআউট সাপোর্ট)
+// কিছু PDF-এ ক্রমিক ২-ডিজিট (০১), কোথাও ৪-ডিজিট (০০০১) — দুটোই ধরা হয়।
+// OCR-এর ছোটখাটো ভুল (যেমন 'পিতা, _ পিতা) এড়িয়ে ফিল্ড আলাদা করা হয়।
 function parseEntries(text) {
   const out = [];
 
@@ -50,11 +52,15 @@ function parseEntries(text) {
     return arr;
   };
 
-  // ক্রমিক + নাম (একই লাইনে একাধিক কলামও ধরে)
+  // বাংলা অক্ষর নয় এমন যেকোনো চিহ্ন (=OCR নয়েজ) ফিল্ড-সেপারেটর হিসেবে ধরা হয়
+  const BN = '\\u0980-\\u09FF';
+  const fieldSep = (label) => `[^${BN}]*${label}\\s*[:ঃ]?\\s*`;
+
+  // ক্রমিক + নাম (একই লাইনে একাধিক কলামও ধরে; ২-৪ ডিজিটের ক্রমিক)
   const serials = [];
   const names = [];
   {
-    const re = /([0-9০-৯]{4})\.\s*নাম\s*[:ঃ]?\s*([^\n]*?)(?=\s*[0-9০-৯]{4}\.\s*নাম|\n|$)/g;
+    const re = /([0-9০-৯]{2,4})\.\s*নাম\s*[:ঃ]?\s*([^\n]*?)(?=\s*[0-9০-৯]{2,4}\.\s*নাম|\n|$)/g;
     let m;
     while ((m = re.exec(text))) {
       serials.push(m[1]);
@@ -63,23 +69,27 @@ function parseEntries(text) {
   }
 
   const voter_nos = seq(/ভোটার\s*(?:নং|নম্বর|সংখ্যা)\s*[:ঃ]?\s*([০-৯]{10,17})/g);
-  const fathers = seq(/পিতা\s*[:ঃ]?\s*([^\n]*?)(?=\s*পিতা\s*[:ঃ]|\n|$)/g);
-  const mothers = seq(/মাতা\s*[:ঃ]?\s*([^\n]*?)(?=\s*মাতা\s*[:ঃ]|\n|$)/g);
-  const occs = seq(/পেশা\s*[:ঃ]?\s*([^\n]*?)(?=\s*পেশা\s*[:ঃ]|\n|$)/g);
-  const addrs = seq(/ঠিকানা\s*[:ঃ]?\s*([^\n]*?)(?=\s*\/?ঠিকানা\s*[:ঃ]|\n|$)/g);
+  // পিতা: আগের/পরের কলামের মাঝে OCR নয়েজ (' , _ ইত্যাদি) থাকলেও আলাদা হয়
+  const fathers = seq(new RegExp(`${fieldSep('পিতা')}([${BN}][^\\n]*?)(?=[^${BN}]*পিতা\\s*[:ঃ]|\\n|$)`, 'g'));
+  const mothers = seq(new RegExp(`${fieldSep('মাতা')}([${BN}][^\\n]*?)(?=[^${BN}]*মাতা\\s*[:ঃ]|\\n|$)`, 'g'));
+  const occs = seq(new RegExp(`${fieldSep('পেশা')}([${BN}][^\\n]*?)(?=[^${BN}]*পেশা\\s*[:ঃ]|\\n|$)`, 'g'));
+  const addrs = seq(new RegExp(`${fieldSep('ঠিকানা')}([${BN}][^\\n]*?)(?=[^${BN}]*ঠিকানা\\s*[:ঃ]|\\n|$)`, 'g'));
 
-  // পেশা থেকে জন্ম তারিখ আলাদা
+  // পেশা থেকে জন্ম তারিখ আলাদা ("জন্ম তারিখ", "জ্ন্ম তারিখ", "জ্ন্য তারিখ" — সব রকম OCR বানান)
   const occupations = [], dobs = [];
   for (const o of occs) {
-    const parts = o.split(/[,]?\s*জ[্ন্য]*ম\s*তারিখ\s*[:ঃ]?\s*/);
-    occupations.push((parts[0] || '').trim());
+    const parts = o.split(/[,]?\s*জ[নম্ন্য্]*\s*তারিখ\s*[:ঃ]?\s*/);
+    occupations.push((parts[0] || '').replace(/[_|/]+$/g, '').trim());
     dobs.push((parts[1] || '').replace(/[^\d০-৯/.-]/g, '').trim());
   }
 
-  for (let i = 0; i < names.length; i++) {
+  const n = Math.max(names.length, voter_nos.length, fathers.length, mothers.length, addrs.length);
+  for (let i = 0; i < n; i++) {
+    // শুধু অবৈধ/ফাঁকা এন্ট্রি বাদ দিন
+    if (!names[i] && !voter_nos[i] && !fathers[i]) continue;
     out.push({
       serial: serials[i] || '',
-      name: names[i],
+      name: names[i] || '',
       voter_no: voter_nos[i] || '',
       father: fathers[i] || '',
       mother: mothers[i] || '',

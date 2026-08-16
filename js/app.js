@@ -12,9 +12,13 @@ const pdfTextOf = (pdfPath) =>
   (typeof PDF_TEXT_BY_PDF !== 'undefined' && PDF_TEXT_BY_PDF[pdfPath]) || '';
 
 // যে PDF গুলোর কোনো রেকর্ড ডেটাবেজে নেই — সেগুলো "আর্কাইভ"
-const getArchiveEntries = () => {
+// ফলাফল ক্যাশ করা থাকে (পেজ রিফ্রেশ পর্যন্ত), যাতে প্রতি সার্চে
+// হাজার হাজার ভোটার এন্ট্রির স্ট্রিং আবার না বানাতে হয়।
+let archivePoolCache = null;
+const getArchiveEntries = (normalizeFn) => {
+  if (archivePoolCache) return archivePoolCache;
   if (typeof PDF_TEXT_INDEX === 'undefined') return [];
-  return PDF_TEXT_INDEX
+  const pool = PDF_TEXT_INDEX
     .filter(e =>
       !DATA.some(r => r.pdf === e.pdf) &&
       !KHATIAN_DATA.some(r => r.pdf === e.pdf) &&
@@ -25,8 +29,34 @@ const getArchiveEntries = () => {
       const extra = (typeof PDF_NAME_OVERRIDES !== 'undefined' && Array.isArray(PDF_NAME_OVERRIDES[e.pdf]))
         ? PDF_NAME_OVERRIDES[e.pdf].join(' ')
         : '';
-      return extra ? { ...e, override_names: PDF_NAME_OVERRIDES[e.pdf], text: e.text + ' ' + extra } : e;
+
+      // OCR-পড়া ভোটার এন্ট্রিগুলো (সঠিক নাম, ভোটার নং, পিতা, মাতা, ঠিকানা)
+      // — এগুলোও সার্চে যোগ না করলে ভাঙা টেক্সটের কারণে নাম খুঁজে পাওয়া যায় না!
+      const voters = (typeof PDF_VOTER_ENTRIES !== 'undefined' && Array.isArray(PDF_VOTER_ENTRIES[e.pdf]))
+        ? PDF_VOTER_ENTRIES[e.pdf]
+        : [];
+      const voterSearch = voters
+        .map(v => [v.name, v.voter_no, v.father, v.mother, v.dob, v.address, v.occupation].filter(Boolean).join(' '))
+        .join(' | ');
+
+      // search_text = আসল টেক্সট + ওভাররাইড নাম + OCR ভোটার তথ্য (সব মিলিয়ে খোঁজা যায়)
+      const search_text = [e.text, extra, voterSearch].filter(Boolean).join(' ');
+      const out = { ...e, search_text };
+      if (extra) out.override_names = PDF_NAME_OVERRIDES[e.pdf];
+      if (voters.length) {
+        out.voters = voters;
+        // পারফরম্যান্স: প্রতিটি ভোটারের স্বাভাবিকীকৃত (normalized) টেক্সট আগে থেকেই বানিয়ে রাখি
+        if (typeof normalizeFn === 'function') {
+          out.voterNorms = voters.map(v =>
+            normalizeFn([v.name, v.voter_no, v.father, v.mother, v.dob, v.address, v.occupation].join(' '))
+          );
+        }
+      }
+      if (typeof normalizeFn === 'function') out.search_norm = normalizeFn(search_text);
+      return out;
     });
+  archivePoolCache = pool;
+  return pool;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -567,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .flatMap(v => normalize(v).split(' '))
       .filter(t => t.length > 1);
     const archiveHits = archiveTokens.length
-      ? getArchiveEntries().filter(e => archiveTokens.every(t => normalize(e.text).includes(t)))
+      ? getArchiveEntries(normalize).filter(e => archiveTokens.every(t => (e.search_norm || normalize(e.search_text)).includes(t)))
       : [];
 
     if (matchedRecords.length === 0 && archiveHits.length === 0) {
@@ -586,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState.style.display = 'none';
     resultsGrid.innerHTML = '';
     if (matchedRecords.length > 0) renderNidResults(matchedRecords, q);
-    renderArchiveSection(archiveHits);
+    renderArchiveSection(archiveHits, archiveTokens);
 
     const parts = [];
     if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি তথ্য ডেটাবেজে পাওয়া গেছে`);
@@ -676,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .flatMap(v => normalize(v).split(' '))
       .filter(t => t.length > 1);
     const archiveHits = archiveTokens.length
-      ? getArchiveEntries().filter(e => archiveTokens.every(t => normalize(e.text).includes(t)))
+      ? getArchiveEntries(normalize).filter(e => archiveTokens.every(t => (e.search_norm || normalize(e.search_text)).includes(t)))
       : [];
 
     if (matchedRecords.length === 0 && archiveHits.length === 0) {
@@ -695,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState.style.display = 'none';
     resultsGrid.innerHTML = '';
     if (matchedRecords.length > 0) renderPorchaResults(matchedRecords, q);
-    renderArchiveSection(archiveHits);
+    renderArchiveSection(archiveHits, archiveTokens);
 
     const parts = [];
     if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি খতিয়ান ডেটাবেজে পাওয়া গেছে`);
@@ -904,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return esc(t.slice(0, cut)) + '&hellip;';
   };
 
-  function renderArchiveSection(hits) {
+  function renderArchiveSection(hits, tokens = []) {
     if (!archiveSection || !archiveGrid) return;
     if (!hits || hits.length === 0) {
       hideArchiveSection();
@@ -912,7 +942,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     lastArchiveResults = hits;
     archiveSection.style.display = 'block';
-    archiveGrid.innerHTML = hits.map((e, i) => `
+
+    const voterMatchesFor = (e) => {
+      if (!Array.isArray(e.voters) || !e.voters.length || !tokens.length) return [];
+      const norms = Array.isArray(e.voterNorms) ? e.voterNorms : null;
+      return e.voters.filter((v, idx) => {
+        const hay = norms ? norms[idx] : normalize([v.name, v.voter_no, v.father, v.mother, v.dob, v.address, v.occupation].join(' '));
+        return tokens.every(t => hay.includes(t));
+      });
+    };
+
+    archiveGrid.innerHTML = hits.map((e, i) => {
+      const matchedVoters = voterMatchesFor(e);
+      const showVoters = matchedVoters.length > 0;
+
+      return `
       <div class="premium-card" style="border-left: 4px solid #7c3aed;">
         <div class="card-header-banner" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
           <h3 class="card-title-main" title="${esc(e.name_bn || e.name || '')}">${esc(e.name_bn || e.name || 'অজানা নাম')}</h3>
@@ -935,13 +979,28 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
           </div>
           ` : ''}
+          ${showVoters ? `
+          <div style="font-size:0.8rem; color:#065f46; background:#ecfdf5; border:1.5px solid #86efac; border-radius:8px; padding:8px 10px; margin-bottom:12px;">
+            <b style="color:#15803d;">✅ ভোটার তালিকায় মিলেছে (${asciiToBn(matchedVoters.length)} জন)</b>
+            <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+              ${matchedVoters.slice(0, 8).map(v => `
+                <div style="font-size:0.78rem;">
+                  <b>${esc(v.name)}</b>${v.father ? ' — পিতা: ' + esc(v.father) : ''}${v.voter_no ? ' <code style="font-size:0.72rem;">' + esc(v.voter_no) + '</code>' : ''}
+                </div>
+              `).join('')}
+              ${matchedVoters.length > 8 ? `<div style="font-size:0.72rem; color:#15803d; font-weight:700;">… আরও ${asciiToBn(matchedVoters.length - 8)} জন — নিচের "ভোটার তালিকা দেখুন" বাটনে ক্লিক করুন</div>` : ''}
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
+            📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
+          </div>` : `
           <div style="font-size:0.8rem; color:var(--text-muted); background:#f8fafc; border:1px dashed var(--border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
             <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট (প্রথমাংশ):</b> ${archiveTextSnippet(e.text)}
             ${String(e.text || '').length > 300 ? '<div style="margin-top:6px; font-size:0.72rem; color:#7c3aed; font-weight:700;">বাকি অংশ দেখতে নিচের "👁️ টেক্সট দেখুন" বাটনে ক্লিক করুন</div>' : ''}
           </div>
           <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
             📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
-          </div>
+          </div>`}
           ${(Array.isArray(e.names) && e.names.length) ? `
           <div style="margin-bottom:12px;">
             <div style="font-size:0.75rem; font-weight:800; color:var(--primary); margin-bottom:6px;">👥 সম্ভাব্য ব্যক্তির নাম (${asciiToBn(e.names.length)} টি) — ক্লিক করলে খুঁজবে:</div>
@@ -970,7 +1029,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   // Low-level clipboard writer with legacy fallback for insecure contexts
@@ -1273,22 +1333,44 @@ window.openArchiveViewer = (index) => {
   const entry = lastArchiveResults[Number(index)];
   if (!entry) return;
 
-  modalTitle.textContent = '📦 PDF আর্কাইভ — উদ্ধারকৃত টেক্সট';
+  const voters = Array.isArray(entry.voters) ? entry.voters : [];
+  const voterRows = voters.length ? `
+    <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
+      <div style="width:100%;">
+        <div style="font-weight:800; color:#15803d; margin-bottom:6px;">👥 OCR-পড়া ভোটার তালিকা (${asciiToBn(voters.length)} জন)</div>
+        <div style="max-height: 50vh; overflow-y: auto; border: 1px solid #bbf7d0; border-radius: 8px; background:#f0fdf4;">
+          ${voters.map(v => `
+            <div style="padding:6px 10px; border-bottom:1px dashed #bbf7d0; font-size:0.78rem;">
+              <b>${esc(v.name)}</b> ${v.voter_no ? '<span style="font-family:monospace; font-size:0.72rem; color:#15803d;">' + esc(v.voter_no) + '</span>' : ''}
+              <div style="color:var(--text-muted); font-size:0.72rem; margin-top:2px;">
+                ${v.father ? 'পিতা: ' + esc(v.father) + ' · ' : ''}${v.mother ? 'মাতা: ' + esc(v.mother) + ' · ' : ''}${v.dob ? 'জন্ম: ' + esc(v.dob) : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  ` : `
+    <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
+      <span class="cert-value" style="white-space: pre-wrap; font-weight: 500; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; max-height: 60vh; overflow-y: auto; display: block;">${esc(entry.text)}</span>
+    </div>
+  `;
+
+  modalTitle.textContent = '📦 PDF আর্কাইভ — ' + (voters.length ? 'OCR ভোটার তালিকা' : 'উদ্ধারকৃত টেক্সট');
   modalBody.innerHTML = `
     <div class="pdf-fallback-container">
       <div class="pdf-fallback-card">
         <div class="pdf-fallback-icon" style="color: #7c3aed;">📦</div>
         <h4 class="pdf-fallback-title">${esc(entry.name_bn || entry.name || 'অজানা')}</h4>
         <p class="pdf-fallback-desc">
-          এই তথ্যটি শুধুমাত্র PDF ফাইলে ছিল (ডেটাবেজে রেকর্ড নেই)। PDF থেকে টেক্সট বের করে নিচে দেখানো হলো।
+          এই তথ্যটি শুধুমাত্র PDF ফাইলে ছিল (ডেটাবেজে রেকর্ড নেই)।
+          ${voters.length ? 'নিচে OCR-এর মাধ্যমে PDF থেকে পড়া ভোটারদের তালিকা দেওয়া হলো।' : 'PDF থেকে টেক্সট বের করে নিচে দেখানো হলো।'}
         </p>
         <div class="pdf-mini-certificate" style="border-color: #7c3aed;">
-          <div class="cert-header" style="border-bottom-color: #7c3aed;">PDF থেকে উদ্ধারকৃত টেক্সট</div>
+          <div class="cert-header" style="border-bottom-color: #7c3aed;">${voters.length ? 'OCR ভোটার তালিকা' : 'PDF থেকে উদ্ধারকৃত টেক্সট'}</div>
           ${entry.nid ? `<div class="cert-row"><span class="cert-label">NID:</span><span class="cert-value" style="font-family:monospace;">${esc(entry.nid)}</span></div>` : ''}
           <div class="cert-row"><span class="cert-label">নাম:</span><span class="cert-value">${esc(entry.name || '—')}</span></div>
-          <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
-            <span class="cert-value" style="white-space: pre-wrap; font-weight: 500; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; max-height: 60vh; overflow-y: auto; display: block;">${esc(entry.text)}</span>
-          </div>
+          ${voterRows}
         </div>
         <button class="btn btn-primary" onclick="downloadArchivePdf('${esc(entry.pdf)}')" style="background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%) !important;">
           ⬇️ অফিসিয়াল PDF ডাউনলোড করুন
