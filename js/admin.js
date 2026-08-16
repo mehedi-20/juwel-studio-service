@@ -192,6 +192,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // অফলাইন মোডে আপলোড: রেকর্ড + PDF সার্ভারে স্থায়ীভাবে সংরক্ষণ
+  async function persistUpload(type, record, file) {
+    showToast('সার্ভারে সংরক্ষণ করা হচ্ছে, দয়া করে অপেক্ষা করুন...');
+    try {
+      const payload = { type, record };
+      if (file) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        payload.fileBase64 = String(dataUrl).split(',')[1] || '';
+        payload.fileName = file.name;
+      }
+      const resp = await fetch('/api/upload-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (data.duplicate) {
+          showToast('এই রেকর্ডটি সার্ভারেও ইতিমধ্যে রয়েছে!');
+        } else {
+          throw new Error(data.error || ('HTTP ' + resp.status));
+        }
+        return;
+      }
+      showToast('রেকর্ড ও PDF সার্ভারে স্থায়ীভাবে সংরক্ষিত হয়েছে! ✓');
+    } catch (err) {
+      console.warn('[Upload] Server persistence failed:', err);
+      showToast('সার্ভারে সেভ ব্যর্থ — শুধু এই সেশনের জন্য যুক্ত হয়েছে ⚠️');
+    }
+  }
+
   // Handle NID Form submission
   if (nidUploadForm) {
     nidUploadForm.addEventListener('submit', async (e) => {
@@ -214,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voter_no: document.getElementById('n_nid').value.trim(),
         gender: document.getElementById('n_gender').value,
         occupation: document.getElementById('n_occupation').value.trim(),
+        search_text: (document.getElementById('n_search_text') || {}).value ? document.getElementById('n_search_text').value.trim() : '',
         pdf: 'pdfs/fallback.pdf', // Default
         createdAt: new Date().toISOString()
       };
@@ -251,19 +288,18 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } else {
-        // OFFLINE SUBMISSION (LOCAL DATA FALLBACK)
-        // Check if record already exists in global array
-        const exists = DATA.some(r => r.nid === newNidRecord.nid);
+        // OFFLINE SUBMISSION (সার্ভারে স্থায়ী সেভ + লোকাল ফলব্যাক)
+        const exists = DATA.some(r => r.nid === newNidRecord.nid) ||
+          (typeof UPLOADED_RECORDS !== 'undefined' && UPLOADED_RECORDS.some(r => r.type === 'nid' && r.nid === newNidRecord.nid));
         if (exists) {
-          showToast('এই NID বা ভোটার নম্বরটি ইতিমধ্যে ডাটাবেজে রয়েছে!');
+          showToast('এই NID বা ভোটার নম্বরটি ইতিমধ্যে ডাটাবেজে রয়েছে!');
           return;
         }
 
-        // Add to local array
         DATA.push(newNidRecord);
-        showToast('NID সফলভাবে অস্থায়ীভাবে যুক্ত করা হয়েছে! (লোকাল মোড) ✓');
         nidUploadForm.reset();
         if (nidFileLabel) nidFileLabel.textContent = `📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন`;
+        persistUpload('nid', newNidRecord, file);
       }
     });
   }
@@ -286,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         division: 'রংপুর',
         land_type: document.getElementById('k_type').value.trim() || 'ভিটা',
         area: document.getElementById('k_area').value.trim() || '০.১৫ একর',
+        search_text: (document.getElementById('k_search_text') || {}).value ? document.getElementById('k_search_text').value.trim() : '',
         pdf: 'pdfs/fallback.pdf', // Default
         createdAt: new Date().toISOString()
       };
@@ -324,17 +361,18 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } else {
-        // OFFLINE SUBMISSION (LOCAL DATA FALLBACK)
-        const exists = KHATIAN_DATA.some(r => r.khatian_no === newKhatianRecord.khatian_no && r.mouza === newKhatianRecord.mouza);
+        // OFFLINE SUBMISSION (সার্ভারে স্থায়ী সেভ + লোকাল ফলব্যাক)
+        const exists = KHATIAN_DATA.some(r => r.khatian_no === newKhatianRecord.khatian_no && r.mouza === newKhatianRecord.mouza) ||
+          (typeof UPLOADED_RECORDS !== 'undefined' && UPLOADED_RECORDS.some(r => r.type === 'khatian' && r.khatian_no === newKhatianRecord.khatian_no && r.mouza === newKhatianRecord.mouza));
         if (exists) {
-          showToast('এই মৌজায় এই খতিয়ান নম্বরটি ইতিমধ্যে রয়েছে!');
+          showToast('এই মৌজায় এই খতিয়ান নম্বরটি ইতিমধ্যে রয়েছে!');
           return;
         }
 
         KHATIAN_DATA.push(newKhatianRecord);
-        showToast('ই-পর্চা সফলভাবে লোকাল মেমোরিতে যুক্ত করা হয়েছে! ✓');
         porchaUploadForm.reset();
         if (porchaFileLabel) porchaFileLabel.textContent = `📁 এখানে ক্লিক করে PDF ফাইল সিলেক্ট করুন`;
+        persistUpload('khatian', newKhatianRecord, file);
       }
     });
   }

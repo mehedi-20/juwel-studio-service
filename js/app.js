@@ -14,7 +14,9 @@ const pdfTextOf = (pdfPath) =>
 const getArchiveEntries = () => {
   if (typeof PDF_TEXT_INDEX === 'undefined') return [];
   return PDF_TEXT_INDEX.filter(e =>
-    !DATA.some(r => r.pdf === e.pdf) && !KHATIAN_DATA.some(r => r.pdf === e.pdf)
+    !DATA.some(r => r.pdf === e.pdf) &&
+    !KHATIAN_DATA.some(r => r.pdf === e.pdf) &&
+    !(typeof UPLOADED_RECORDS !== 'undefined' && UPLOADED_RECORDS.some(r => r.pdf === e.pdf))
   );
 };
 
@@ -346,6 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
       searchPool = [...DATA];
     }
 
+    // অ্যাডমিন প্যানেল থেকে আপলোডকৃত NID রেকর্ডও খোঁজায় যোগ
+    if (typeof UPLOADED_RECORDS !== 'undefined') {
+      UPLOADED_RECORDS.filter(r => r.type === 'nid').forEach(r => searchPool.push(r));
+    }
+
     // Filter data matching all criteria
     let matchedRecords = searchPool.filter(r => 
       matches(r.nid, q.nid) &&
@@ -366,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const haystack = normalize([
           r.name, r.name_en, r.father, r.mother, r.village, r.union, r.post,
           r.upazila, r.district, r.occupation, r.gender, r.nid, r.voter_no, r.dob,
+          r.search_text,
           pdfTextOf(r.pdf)
         ].join(' '));
         return tokens.every(t => haystack.includes(t));
@@ -452,6 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
       searchPool = [...KHATIAN_DATA];
     }
 
+    // অ্যাডমিন প্যানেল থেকে আপলোডকৃত খতিয়ান রেকর্ডও খোঁজায় যোগ
+    if (typeof UPLOADED_RECORDS !== 'undefined') {
+      UPLOADED_RECORDS.filter(r => r.type === 'khatian').forEach(r => searchPool.push(r));
+    }
+
     let matchedRecords = searchPool.filter(r => 
       matches(r.owner, q.owner) &&
       matches(r.father, q.owner_father) &&
@@ -469,14 +482,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const haystack = normalize([
           r.owner, r.father, r.khatian_no, r.dag_no, r.mouza, r.jl_no,
           r.upazila, r.district, r.division, r.land_type, r.area,
+          r.search_text,
           pdfTextOf(r.pdf)
         ].join(' '));
         return tokens.every(t => haystack.includes(t));
       });
     }
 
-    hideArchiveSection();
-    renderPorchaResults(matchedRecords, q);
+    // PDF আর্কাইভে খোঁজা (রেকর্ডবিহীন PDF + আপলোডকৃত PDF থেকে উদ্ধারকৃত টেক্সট)
+    const archiveTokens = Object.values(q)
+      .flatMap(v => normalize(v).split(' '))
+      .filter(t => t.length > 1);
+    const archiveHits = archiveTokens.length
+      ? getArchiveEntries().filter(e => archiveTokens.every(t => normalize(e.text).includes(t)))
+      : [];
+
+    if (matchedRecords.length === 0 && archiveHits.length === 0) {
+      resultsGrid.innerHTML = '';
+      hideArchiveSection();
+      statusContainer.innerHTML = '';
+      emptyState.style.display = 'block';
+      emptyState.innerHTML = `
+        <div class="empty-icon">😕</div>
+        <div class="empty-title">কোনো খতিয়ান বা পর্চা পাওয়া যায়নি</div>
+        <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে খতিয়ান নম্বর বা মালিকের নাম পুনরায় যাচাই করুন।</p>
+      `;
+      return;
+    }
+
+    emptyState.style.display = 'none';
+    resultsGrid.innerHTML = '';
+    if (matchedRecords.length > 0) renderPorchaResults(matchedRecords, q);
+    renderArchiveSection(archiveHits);
+
+    const parts = [];
+    if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি খতিয়ান ডেটাবেজে পাওয়া গেছে`);
+    if (archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি পিডিএফ আর্কাইভে পাওয়া গেছে`);
+    statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
 
   // Render NID Result Cards

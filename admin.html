@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
-  <link rel="stylesheet" href="css/style.css?v=3.2">
+  <link rel="stylesheet" href="css/style.css?v=3.3">
   <style>
     .admin-card {
       max-width: 800px;
@@ -270,6 +270,11 @@
             </div>
           </div>
 
+          <div class="form-field">
+            <label>অনুসন্ধান কীওয়ার্ড / Search Keywords <span class="optional">(ঐচ্ছিক)</span></label>
+            <input type="text" id="n_search_text" placeholder="যেমন: ডাকনাম, বিকল্প বানান, অন্য নাম — কমা (,) দিয়ে আলাদা করুন" autocomplete="off">
+          </div>
+
           <!-- File Upload -->
           <div class="form-field">
             <label>NID PDF ডকুমেন্ট আপলোড</label>
@@ -345,6 +350,11 @@
             </div>
           </div>
 
+          <div class="form-field">
+            <label>খতিয়ানে থাকা অন্যান্য নাম / Search Keywords <span class="optional">(ঐচ্ছিক)</span></label>
+            <textarea id="k_search_text" rows="2" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.92rem; font-family: inherit; outline: none; width: 100%;" placeholder="খতিয়ানের ভেতরে যত নাম/দাগ/তথ্য আছে তা লিখুন — কমা (,) দিয়ে আলাদা করুন। এই নামগুলো দিয়েই পরে সার্চ করা যাবে।"></textarea>
+          </div>
+
           <!-- File Upload -->
           <div class="form-field">
             <label>ই-পর্চা PDF ডকুমেন্ট আপলোড</label>
@@ -397,6 +407,7 @@
 
   <!-- Load Scripts -->
   <script src="js/data.js"></script>
+  <script src="js/data-uploads.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/admin.js"></script>
 
