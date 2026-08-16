@@ -1,0 +1,13 @@
+{
+  "name": "juwel-telecom-e-sheba",
+  "version": "1.0.0",
+  "private": true,
+  "description": "জুয়েল টেলিকম ই-সেবা পোর্টাল — NID ও খতিয়ান তথ্য অনুসন্ধান",
+  "scripts": {
+    "start": "node server.js",
+    "build-index": "node tools/build-pdf-text-index.js"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1"
+  }
+}

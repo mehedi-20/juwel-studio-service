@@ -288,6 +288,104 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================================
+     3.6 PDF বাল্ক আপলোড (খতিয়ান/ভোটার তালিকার PDF — একসাথে অনেক)
+     ========================================================================== */
+  const pdfBulkFiles = document.getElementById('pdf_bulk_files');
+  const pdfBulkLabel = document.getElementById('pdfBulkLabel');
+  const pdfBulkList = document.getElementById('pdfBulkList');
+  const btnPdfBulkUpload = document.getElementById('btnPdfBulkUpload');
+  const pdfBulkResult = document.getElementById('pdfBulkResult');
+
+  if (pdfBulkFiles && pdfBulkLabel) {
+    pdfBulkFiles.addEventListener('change', () => {
+      const files = [...pdfBulkFiles.files];
+      pdfBulkLabel.textContent = files.length
+        ? '✓ ' + files.length + ' টি ফাইল নির্বাচিত'
+        : '📁 সব PDF ফাইল সিলেক্ট করুন';
+      if (pdfBulkList) {
+        pdfBulkList.innerHTML = files.map(f => '📄 ' + f.name).join('<br>');
+      }
+    });
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const s = String(reader.result || '');
+        resolve(s.split(',')[1] || '');
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (btnPdfBulkUpload) {
+    btnPdfBulkUpload.addEventListener('click', async () => {
+      const files = pdfBulkFiles ? [...pdfBulkFiles.files] : [];
+      if (!files.length) {
+        if (pdfBulkResult) pdfBulkResult.textContent = '⚠️ আগে PDF ফাইল সিলেক্ট করুন';
+        return;
+      }
+
+      btnPdfBulkUpload.disabled = true;
+      const BATCH = 10;
+      let savedAll = [], failedAll = [];
+
+      try {
+        for (let i = 0; i < files.length; i += BATCH) {
+          const batch = files.slice(i, i + BATCH);
+          if (pdfBulkResult) {
+            pdfBulkResult.textContent = '⬆️ আপলোড হচ্ছে... ' + Math.min(i + BATCH, files.length) + '/' + files.length;
+          }
+          const payloadFiles = [];
+          for (const f of batch) {
+            try {
+              payloadFiles.push({ name: f.name, base64: await readFileAsBase64(f) });
+            } catch (e) {
+              failedAll.push({ name: f.name, error: 'পড়া যায়নি' });
+            }
+          }
+          if (!payloadFiles.length) continue;
+
+          const resp = await fetch('/api/bulk-pdf-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: payloadFiles })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+          savedAll = savedAll.concat(data.saved || []);
+          failedAll = failedAll.concat(data.failed || []);
+        }
+
+        const withText = savedAll.filter(x => x.hasText).length;
+        const scanned = savedAll.length - withText;
+        let msg = '✓ সফল! ' + savedAll.length + ' টি PDF আপলোড হয়েছে';
+        msg += ' — ' + withText + ' টিতে টেক্সট পাওয়া গেছে (নামে সার্চ হবে)';
+        if (scanned) msg += ', ' + scanned + ' টি স্ক্যান করা (ফাইলের নামে খোঁজা যাবে)';
+        if (failedAll.length) msg += ' | ' + failedAll.length + ' টি ব্যর্থ';
+        if (pdfBulkResult) {
+          pdfBulkResult.style.color = 'var(--success)';
+          pdfBulkResult.textContent = msg;
+        }
+        showToast('PDF আপলোড সম্পন্ন! সার্চ ইনডেক্স আপডেট হয়েছে ✓');
+        if (pdfBulkFiles) pdfBulkFiles.value = '';
+        if (pdfBulkList) pdfBulkList.innerHTML = '';
+        if (pdfBulkLabel) pdfBulkLabel.textContent = '📁 সব PDF ফাইল সিলেক্ট করুন';
+      } catch (err) {
+        console.error('[BulkPDF] Error:', err);
+        if (pdfBulkResult) {
+          pdfBulkResult.style.color = 'var(--accent)';
+          pdfBulkResult.textContent = 'আপলোড ব্যর্থ: ' + err.message;
+        }
+      } finally {
+        btnPdfBulkUpload.disabled = false;
+      }
+    });
+  }
+
+  /* ==========================================================================
      4. Firebase Integration & Forms Submission
      ========================================================================== */
   let db, storage;

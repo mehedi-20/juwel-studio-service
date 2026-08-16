@@ -858,6 +858,26 @@ mark {
   border-style: solid;
 }
 
+/* আর্কাইভ কার্ডে সম্ভাব্য নামের চিপ */
+.archive-name-chip {
+  background: #fff;
+  border: 1px solid #c4b5fd;
+  color: #6d28d9;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.archive-name-chip:hover {
+  background: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
+}
+
 /* PDF Archive Section (records recovered from PDFs without a DB entry) */
 .archive-section {
   margin-top: 30px;

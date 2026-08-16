@@ -54,6 +54,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // বাল্ক PDF আপলোড (একসাথে অনেক PDF — খতিয়ান/ভোটার তালিকার স্ক্যান)
+  if (req.method === 'POST' && pathname === '/api/bulk-pdf-upload') {
+    handleBulkPdfUpload(req, res);
+    return;
+  }
+
   // Resolve the requested path strictly inside the project root
   // (normalize neutralizes ../ traversal attempts)
   const filePath = path.normalize(path.join(ROOT, pathname));
@@ -140,6 +146,67 @@ function rebuildTextIndex() {
   child.on('error', (err) => {
     textIndexRebuildQueued = false;
     console.warn('[Upload] PDF index rebuild failed:', err.message);
+  });
+}
+
+function handleBulkPdfUpload(req, res) {
+  const MAX_PDF_UPLOAD = 120 * 1024 * 1024; // 120 MB per request
+  let raw = '';
+  req.on('data', (chunk) => {
+    raw += chunk;
+    if (raw.length > MAX_PDF_UPLOAD + 1024 * 1024) {
+      sendJson(res, 413, { ok: false, error: 'একসাথে অনেক বড় আপলোড — ছোট ব্যাচে করুন' });
+      req.destroy();
+    }
+  });
+
+  req.on('end', () => {
+    try {
+      const payload = JSON.parse(raw || '{}');
+      const files = Array.isArray(payload.files) ? payload.files : [];
+      if (!files.length) return sendJson(res, 400, { ok: false, error: 'কোনো ফাইল নেই' });
+      if (files.length > 100) return sendJson(res, 400, { ok: false, error: 'একবারে সর্বোচ্চ ১০০ ফাইল' });
+
+      const saved = [], failed = [];
+      for (const f of files) {
+        const fname = (f && f.name) || 'unknown.pdf';
+        try {
+          if (!f || !f.base64) throw new Error('ফাইল ডেটা নেই');
+          const buf = Buffer.from(String(f.base64), 'base64');
+          if (!buf.length) throw new Error('ফাইল খালি');
+          if (buf.slice(0, 5).toString('latin1') !== '%PDF-') throw new Error('PDF ফাইল নয়');
+
+          // নিরাপদ ফাইলের নাম (বাংলা নামও চলবে)
+          let name = String(fname).replace(/[^a-zA-Z0-9._\u0980-\u09FF -]/g, '_').trim() || ('upload-' + Date.now());
+          if (!/\.pdf$/i.test(name)) name += '.pdf';
+          let finalName = name, counter = 1;
+          while (fs.existsSync(path.join(ROOT, 'pdfs', finalName))) {
+            finalName = name.replace(/\.pdf$/i, '') + '-' + counter + '.pdf';
+            counter++;
+          }
+          fs.writeFileSync(path.join(ROOT, 'pdfs', finalName), buf);
+
+          // টেক্সট লেয়ার আছে কিনা (স্ক্যান করা PDF-এ থাকে না)
+          let hasText = false;
+          try {
+            const text = buf.toString('latin1');
+            const matches = text.match(/\(([^()]*)\)\s*Tj/g) || [];
+            hasText = matches.join(' ').replace(/\s/g, '').length > 0;
+          } catch (e) { /* ignore */ }
+
+          saved.push({ name: finalName, hasText });
+          console.log('[BulkPDF] saved', finalName, hasText ? '(text layer ✓)' : '(scanned — no text)');
+        } catch (e) {
+          failed.push({ name: fname, error: e.message });
+        }
+      }
+
+      if (saved.length) rebuildTextIndex();
+      sendJson(res, 200, { ok: true, saved, failed });
+    } catch (e) {
+      console.error('[BulkPDF] Error:', e);
+      sendJson(res, 500, { ok: false, error: 'আপলোড ব্যর্থ: ' + e.message });
+    }
   });
 }
 

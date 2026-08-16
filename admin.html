@@ -406,6 +406,30 @@
           📥 ইমপোর্ট করুন
         </button>
         <div id="bulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: var(--accent); margin-bottom: 10px;">📁 PDF ফাইল বাল্ক আপলোড (খতিয়ান / ভোটার তালিকার PDF)</h4>
+
+        <div class="bulk-help" style="border-left-color: var(--accent);">
+          <b>যেভাবে কাজ করবে:</b> সব PDF একসাথে সিলেক্ট করে আপলোড করলেই প্রতিটি PDF থেকে টেক্সট বের হয়ে সার্চ ইনডেক্সে যোগ হবে — তখন PDF-এর ভেতরের যেকোনো নাম লিখে খুঁজলেই ফলাফল আসবে।<br><br>
+          <b>⚠️ স্ক্যান করা PDF (ছবি):</b> যেসব PDF ছবি থেকে স্ক্যান করা, সেগুলোর ভেতরে টেক্সট থাকে না — সেগুলোর <b>ফাইলের নামে খতিয়ান নং/মৌজা/নাম রেখে দিন</b> (যেমন: <code>খতিয়ান-২৬-উত্তর-চাঁদখানা-হিমাংশু.pdf</code>) — তাহলে নাম ধরে খুঁজে পাওয়া যাবে।<br>
+          <small style="color:var(--text-muted)">এক ব্যাচে ১০টা করে ফাইল আপলোড হবে — সবশেষে সারাংশ দেখানো হবে কোন কোন PDF-এ টেক্সট পাওয়া গেছে।</small>
+        </div>
+
+        <div class="form-field">
+          <label>PDF ফাইল সিলেক্ট করুন (একসাথে অনেকগুলো — Ctrl+A চেপে সব)</label>
+          <div class="file-upload-box">
+            <span id="pdfBulkLabel">📁 সব PDF ফাইল সিলেক্ট করুন</span>
+            <input type="file" id="pdf_bulk_files" accept="application/pdf,.pdf" multiple>
+          </div>
+        </div>
+        <div id="pdfBulkList" style="font-size:0.8rem; color:var(--text-muted); margin-top:8px; max-height: 140px; overflow-y: auto;"></div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnPdfBulkUpload" style="margin-top:12px; height: 48px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
+          ⬆️ সব PDF আপলোড করুন
+        </button>
+        <div id="pdfBulkResult" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700;"></div>
       </div>
 
       <!-- Manage Section / Show lists -->

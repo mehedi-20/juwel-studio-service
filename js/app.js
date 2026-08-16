@@ -185,6 +185,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // আর্কাইভ কার্ডের সম্ভাব্য নামে ক্লিক → NID ট্যাবে গিয়ে ওই নামে খোঁজা
+  window.searchArchiveName = (name) => {
+    if (!name) return;
+    if (tabNid) tabNid.click();
+    if (fields.name) fields.name.value = name;
+    doSearch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // NID কার্ড থেকে সংশ্লিষ্ট খতিয়ানের পূর্ণ বিবরণ মোডালে দেখানো
   window.openKhatianByNid = (nid) => {
     const links = KHATIAN_LINKS[String(nid)] || [];
@@ -862,6 +871,16 @@ document.addEventListener('DOMContentLoaded', () => {
           <div style="font-size:0.8rem; color:var(--text-muted); background:#f8fafc; border:1px dashed var(--border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
             <b style="color:var(--primary);">উদ্ধারকৃত টেক্সট:</b> ${esc(e.text)}
           </div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
+            📁 ফাইল: <b>${esc(e.file_name || e.pdf)}</b>
+          </div>
+          ${(Array.isArray(e.names) && e.names.length) ? `
+          <div style="margin-bottom:12px;">
+            <div style="font-size:0.75rem; font-weight:800; color:var(--primary); margin-bottom:6px;">👥 সম্ভাব্য ব্যক্তির নাম (${asciiToBn(e.names.length)} টি) — ক্লিক করলে খুঁজবে:</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${e.names.map(n => `<button class="archive-name-chip" onclick="searchArchiveName('${esc(n)}')">${esc(n)}</button>`).join('')}
+            </div>
+          </div>` : ''}
         </div>
         <div class="card-actions">
           <button class="btn btn-primary btn-view-pdf" onclick="openArchiveViewer('${i}')">
