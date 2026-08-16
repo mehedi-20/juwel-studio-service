@@ -5,6 +5,7 @@
 let lastNidResults = {};
 let lastKhatianResults = {};
 let lastArchiveResults = [];
+let lastKhatianPeople = {}; // 'k<i>' -> ব্যক্তিদের নামের অ্যারে
 
 // PDF টেক্সট ইনডেক্স হেল্পার (js/pdf-text-index.js থেকে লোড হয়)
 const pdfTextOf = (pdfPath) =>
@@ -111,6 +112,120 @@ document.addEventListener('DOMContentLoaded', () => {
     lastArchiveResults = [];
     if (archiveSection) archiveSection.style.display = 'none';
     if (archiveGrid) archiveGrid.innerHTML = '';
+  };
+
+  // খতিয়ান ↔ ব্যক্তি লিংক ম্যাপ (NID → সংশ্লিষ্ট খতিয়ান রেকর্ড)
+  const KHATIAN_LINKS = {};
+  (function buildKhatianLinks() {
+    const allK = [...KHATIAN_DATA];
+    if (typeof UPLOADED_RECORDS !== 'undefined') {
+      UPLOADED_RECORDS.filter(r => r.type === 'khatian').forEach(r => allK.push(r));
+    }
+    allK.forEach(k => {
+      (k.people || []).forEach(p => {
+        if (!p.nid) return;
+        (KHATIAN_LINKS[String(p.nid)] = KHATIAN_LINKS[String(p.nid)] || []).push(k);
+      });
+    });
+  })();
+
+  // খতিয়ান কার্ডে "উল্লেখিত ব্যক্তিবর্গ" সেকশনের HTML
+  function peopleSectionHtml(r, cardIndex) {
+    const people = Array.isArray(r.people) ? r.people : [];
+    if (!people.length) return '';
+    const rows = people.map((p, pi) => `
+      <div class="person-chip-row">
+        <div class="person-chip">
+          <span class="person-name">${esc(p.name)}</span>
+          <span class="person-meta">পিতা: ${esc(p.father || '—')}${p.nid ? ' · NID: <code>' + esc(p.nid) + '</code>' : ''}${p.relation ? ' · ' + esc(p.relation) : ''}</span>
+        </div>
+        <div class="person-actions">
+          <button class="btn-copy" title="নাম কপি করুন" onclick="copyPersonName('k${cardIndex}', ${pi})">📋</button>
+          <button class="btn-copy" title="এই ব্যক্তিকে NID-তে খুঁজুন" onclick="searchPersonFrom('k${cardIndex}', ${pi})">🔎</button>
+        </div>
+      </div>
+    `).join('');
+    return `
+      <div style="margin-top: 12px; border: 1.5px solid #fecaca; border-radius: 12px; background: #fff8f8; padding: 12px;">
+        <div style="font-size: 0.78rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; display:flex; align-items:center; gap:4px;">
+          <span>👥</span> এই খতিয়ানে উল্লেখিত ব্যক্তিবর্গ (${asciiToBn(people.length)} জন)
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  // NID কার্ডে খতিয়ান লিংক ব্যাজ
+  function khatianLinksHtml(r) {
+    if (!r || !r.nid) return '';
+    const links = KHATIAN_LINKS[String(r.nid)] || [];
+    if (!links.length) return '';
+    return links.map(k => `
+      <button class="khatian-link-badge" onclick="openKhatianByNid('${esc(String(r.nid))}')">
+        📜 খতিয়ান নং ${esc(k.khatian_no)} (${esc(k.mouza)})-এ এই নামটি আছে — বিস্তারিত দেখুন
+      </button>
+    `).join('');
+  }
+
+  // খতিয়ানের ব্যক্তি তালিকা থেকে নাম কপি
+  window.copyPersonName = (key, idx) => {
+    const names = lastKhatianPeople[key];
+    const name = names && names[idx];
+    if (!name) return;
+    window.copyToClipboard(name);
+  };
+
+  // খতিয়ানের ব্যক্তি তালিকা থেকে NID ট্যাবে গিয়ে ওই নামে খোঁজা
+  window.searchPersonFrom = (key, idx) => {
+    const names = lastKhatianPeople[key];
+    const name = names && names[idx];
+    if (!name) return;
+    if (tabNid) tabNid.click();
+    if (fields.name) fields.name.value = name;
+    doSearch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // NID কার্ড থেকে সংশ্লিষ্ট খতিয়ানের পূর্ণ বিবরণ মোডালে দেখানো
+  window.openKhatianByNid = (nid) => {
+    const links = KHATIAN_LINKS[String(nid)] || [];
+    if (!links.length) return;
+    const modal = document.getElementById('pdfModal');
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    if (!modal || !modalBody) return;
+
+    const certRow = (label, val) =>
+      (val || val === 0) ? `<div class="cert-row"><span class="cert-label">${esc(label)}:</span><span class="cert-value">${esc(val)}</span></div>` : '';
+
+    modalTitle.textContent = '📜 খতিয়ানের পূর্ণ বিবরণ';
+    modalBody.innerHTML = links.map(k => `
+      <div class="pdf-fallback-card" style="max-width: 600px; margin: 20px auto; box-shadow: var(--shadow-md);">
+        <div class="pdf-fallback-icon" style="color: var(--accent);">📜</div>
+        <h4 class="pdf-fallback-title">খতিয়ান নং: ${esc(k.khatian_no)} — ${esc(k.mouza)}</h4>
+        <p class="pdf-fallback-desc">এই খতিয়ানে উল্লেখিত ব্যক্তির NID থেকে খোঁজা হয়েছে। নিচে খতিয়ানের পূর্ণ তথ্য দেওয়া হলো।</p>
+        <div class="pdf-mini-certificate" style="border-color: var(--accent);">
+          <div class="cert-header" style="color: #b91c1c; border-bottom-color: var(--accent);">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার - ই-পর্চা রেকর্ড</div>
+          ${certRow('খতিয়ান নং', k.khatian_no)}
+          ${certRow('দাগ নম্বর', k.dag_no)}
+          ${certRow('মৌজা', k.mouza ? (k.mouza + (k.jl_no ? ' (জে. এল. নং: ' + k.jl_no + ')' : '')) : '')}
+          ${certRow('মালিক/দখলদার', k.owner)}
+          ${certRow('পিতা/স্বামী', k.father)}
+          ${certRow('জমির পরিমাণ', k.area)}
+          ${certRow('জমির শ্রেণী', k.land_type)}
+          ${certRow('ঠিকানা', [k.upazila, k.district, k.division].filter(Boolean).join(', '))}
+          ${(k.people && k.people.length) ? `
+          <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
+            <span class="cert-value" style="white-space: pre-wrap; font-weight: 500;">
+              👥 উল্লেখিত ব্যক্তিবর্গ (${asciiToBn(k.people.length)} জন): ${esc(k.people.map(p => p.name + (p.nid ? ' (NID: ' + p.nid + ')' : '')).join(', '))}
+            </span>
+          </div>` : ''}
+        </div>
+        <button class="btn btn-primary" onclick="downloadArchivePdf('${esc(k.pdf || 'pdfs/fallback.pdf')}')" style="background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%) !important;">
+          ⬇️ পর্চা PDF ডাউনলোড করুন
+        </button>
+      </div>
+    `).join('');
+    modal.classList.add('show');
   };
 
   const resetResults = () => {
@@ -238,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s === null || s === undefined) return '';
     s = String(s).toLowerCase();
     s = s.replace(/[০-৯]/g, d => BN_DIGITS[d]);
+    // য/য় সহনশীলতা: "রায়", "রায", "রা" + "য" + "়" — সব একইভাবে মিলবে
+    s = s.replace(/\u09DF/g, '\u09AF');       // precomposed য় → য
+    s = s.replace(/\u09AF\u09BC/g, '\u09AF'); // decomposed য+় → য
     // Strip honorifics/titles so searches still match without them.
     // NOTE: \b word boundaries do NOT work around Bengali characters,
     // so these must be plain global replacements.
@@ -352,7 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof UPLOADED_RECORDS !== 'undefined') {
       UPLOADED_RECORDS.filter(r => r.type === 'nid').forEach(r => searchPool.push(r));
     }
-
     // Filter data matching all criteria
     let matchedRecords = searchPool.filter(r => 
       matches(r.nid, q.nid) &&
@@ -563,6 +680,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <span>${esc(r.name_en || '')}</span>
             <span>ক্রমিক: #${esc(r.sl ?? '—')}</span>
           </div>
+
+          ${khatianLinksHtml(r)}
           
           ${r.nid ? `
           <div class="card-nid-container" title="ক্লিক করে কপি করুন">
@@ -636,6 +755,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resultsGrid.innerHTML = records.map((r, i) => {
       lastKhatianResults[String(i)] = r;
+      lastKhatianPeople['k' + i] = (r.people || []).map(p => p.name);
+      const people_text = (r.people || []).map(p => p.name).join(', ');
       const compiled_text = `খতিয়ান নম্বর: ${r.khatian_no}
 দাগ নম্বর: ${r.dag_no}
 মৌজা: ${r.mouza}
@@ -643,7 +764,8 @@ document.addEventListener('DOMContentLoaded', () => {
 পিতা: ${r.father}
 জমির পরিমাণ: ${r.area}
 শ্রেণী: ${r.land_type}
-ঠিকানা: ${r.upazila}, ${r.district}`;
+ঠিকানা: ${r.upazila}, ${r.district}
+উল্লেখিত ব্যক্তিবর্গ: ${people_text}`;
 
       return `
       <div class="premium-card" style="border-left: 4px solid var(--accent);">
@@ -675,6 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ${createRow('জেলা', r.district)}
             ${createRow('বিভাগ', r.division)}
           </dl>
+
+          ${peopleSectionHtml(r, i)}
 
           <!-- Compiled Details Box for Copy-all -->
           <div style="margin-top: 15px; border: 1.5px solid var(--border); border-radius: 12px; background: #fafafa; padding: 12px;">
@@ -916,6 +1040,12 @@ function openPdfViewer(id, isKhatian = false) {
               <span class="cert-label">ঠিকানা:</span>
               <span class="cert-value">${esc(record.upazila)}, ${esc(record.district)}</span>
             </div>
+            ${(record.people && record.people.length) ? `
+            <div class="cert-row" style="grid-template-columns: 1fr; margin-top: 8px;">
+              <span class="cert-value" style="white-space: pre-wrap; font-weight: 500;">
+                👥 উল্লেখিত ব্যক্তিবর্গ (${asciiToBn(record.people.length)} জন): ${esc(record.people.map(p => p.name + (p.nid ? ' (NID: ' + p.nid + ')' : '')).join(', '))}
+              </span>
+            </div>` : ''}
           </div>
 
           <button class="btn btn-primary" onclick="downloadPdf('${esc(id)}', '${esc(record.pdf)}', true)" style="background: var(--accent) !important;">
@@ -983,6 +1113,12 @@ function openPdfViewer(id, isKhatian = false) {
 function closePdfViewer() {
   const modal = document.getElementById('pdfModal');
   if (modal) modal.classList.remove('show');
+}
+
+// ASCII digit -> Bengali digit helper (UI-তে সুন্দর দেখানোর জন্য)
+function asciiToBn(s) {
+  const BN = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return String(s ?? '').replace(/\d/g, d => BN[Number(d)]);
 }
 
 // Bengali digit -> ASCII digit helper (for clean file names)

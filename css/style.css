@@ -785,6 +785,79 @@ mark {
   color: #fff !important;
 }
 
+/* খতিয়ানে উল্লেখিত ব্যক্তিবর্গ (person chips) */
+.person-chip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+
+.person-chip-row:last-child {
+  margin-bottom: 0;
+}
+
+.person-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.person-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.person-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.person-meta code {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.person-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* NID কার্ডে খতিয়ান লিংক ব্যাজ */
+.khatian-link-badge {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  background: #fff5f5;
+  border: 1.5px dashed #fca5a5;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.khatian-link-badge:hover {
+  background: var(--accent);
+  color: #fff;
+  border-style: solid;
+}
+
 /* PDF Archive Section (records recovered from PDFs without a DB entry) */
 .archive-section {
   margin-top: 30px;

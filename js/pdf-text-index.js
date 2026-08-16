@@ -158,10 +158,10 @@ const PDF_TEXT_INDEX = [
   },
   {
     "pdf": "pdfs/khatian-26.pdf",
-    "name": "",
+    "name": "PERSONS: Himangshu Kumar Dalim, Keshab Chandra Roy, Paritosh Chandra Roy, Brojendra Nath Roy, Dulal Chandra Roy, Adesh Chandra Roy, Bhola Nath Roy, Ashwani Kumar Roy, Dwarka Nath Roy, Mukunda Kumar Roy, Parimal Chandra Roy, Mithun Chandra Roy, Subas Chandra Roy, Podar Chandra Roy",
     "name_bn": "",
     "nid": "",
-    "text": "MOCK S.A. E-PORCHA PDF FOR KHATIAN 26, MOUZA: UTTOR CHANDKHANA MOCK KHATIAN PDF FILE FOR KHATIAN 26 KHATIAN: 26, MOUZA: UTTOR CHANDKHANA"
+    "text": "MOCK S.A. E-PORCHA PDF FOR KHATIAN 26, MOUZA: UTTOR CHANDKHANA. OWNER: HIMANGSHU KUMAR DALIM. RECORDED PERSONS: Himangshu Kumar Dalim, Keshab Chandra Roy, Paritosh Chandra Roy, Brojendra Nath Roy, Dulal Chandra Roy, Adesh Chandra Roy, Bhola Nath Roy, Ashwani Kumar Roy, Dwarka Nath Roy, Mukunda Kumar Roy, Parimal Chandra Roy, Mithun Chandra Roy, Subas Chandra Roy, Podar Chandra Roy MOCK KHATIAN PDF FILE FOR KHATIAN 26 KHATIAN: 26, MOUZA: UTTOR CHANDKHANA PERSONS: Himangshu Kumar Dalim, Keshab Chandra Roy, Paritosh Chandra Roy, Brojendra Nath Roy, Dulal Chandra Roy, Adesh Chandra Roy, Bhola Nath Roy, Ashwani Kumar Roy, Dwarka Nath Roy, Mukunda Kumar Roy, Parimal Chandra Roy, Mithun Chandra Roy, Subas Chandra Roy, Podar Chandra Roy"
   },
   {
     "pdf": "pdfs/khatian-71.pdf",
