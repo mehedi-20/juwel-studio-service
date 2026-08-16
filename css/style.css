@@ -858,6 +858,78 @@ mark {
   border-style: solid;
 }
 
+/* ভোটার তালিকা মোডাল */
+.voter-list-wrap {
+  padding: 20px;
+  width: 100%;
+}
+
+.voter-list-search input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 14px;
+}
+
+.voter-list-search input:focus {
+  border-color: var(--secondary);
+}
+
+#voterListContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.voter-row {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--secondary);
+  border-radius: 10px;
+  padding: 9px 12px;
+}
+
+.voter-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.voter-serial {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+.voter-name {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.voter-no {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--secondary);
+}
+
+.voter-row-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
 /* আর্কাইভ কার্ডে সম্ভাব্য নামের চিপ */
 .archive-name-chip {
   background: #fff;

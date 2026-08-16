@@ -193,6 +193,54 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // PDF-এর OCR-পড়া ভোটার তালিকা মোডালে দেখানো
+  window.openVoterList = (pdfPath) => {
+    const modal = document.getElementById('pdfModal');
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    if (!modal || !modalBody) return;
+    const entries = (typeof PDF_VOTER_ENTRIES !== 'undefined' && Array.isArray(PDF_VOTER_ENTRIES[pdfPath]))
+      ? PDF_VOTER_ENTRIES[pdfPath]
+      : [];
+    if (!entries.length) return;
+
+    modalTitle.textContent = '👥 ভোটার তালিকা (' + asciiToBn(entries.length) + ' জন) — OCR পড়া';
+    modalBody.innerHTML = `
+      <div class="voter-list-wrap">
+        <div class="voter-list-search">
+          <input id="voterListFilter" type="text" placeholder="🔍 এই তালিকার ভেতরে নাম/ভোটার নং খুঁজুন..." oninput="filterVoterList(this.value)">
+        </div>
+        <div id="voterListContainer">
+          ${entries.map((e, i) => `
+            <div class="voter-row" data-search="${esc((e.name + ' ' + e.voter_no + ' ' + e.father).toLowerCase())}">
+              <div class="voter-row-main">
+                <span class="voter-serial">#${esc(e.serial)}</span>
+                <span class="voter-name">${esc(e.name)}</span>
+                <span class="voter-no">${esc(e.voter_no)}</span>
+              </div>
+              <div class="voter-row-sub">
+                ${e.father ? 'পিতা: ' + esc(e.father) + ' · ' : ''}${e.mother ? 'মাতা: ' + esc(e.mother) + ' · ' : ''}${e.dob ? 'জন্ম: ' + esc(e.dob) : ''}
+              </div>
+              ${e.address ? `<div class="voter-row-sub">ঠিকানা: ${esc(e.address)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    modal.classList.add('show');
+  };
+
+  // ভোটার তালিকা মোডালের ভেতরে ফিল্টার
+  window.filterVoterList = (q) => {
+    const container = document.getElementById('voterListContainer');
+    if (!container) return;
+    const norm = String(q || '').toLowerCase().trim();
+    container.querySelectorAll('.voter-row').forEach(row => {
+      const hay = row.getAttribute('data-search') || '';
+      row.style.display = (!norm || hay.includes(norm)) ? '' : 'none';
+    });
+  };
+
   // আর্কাইভ কার্ডের সম্ভাব্য নামে ক্লিক → NID ট্যাবে গিয়ে ওই নামে খোঁজা
   window.searchArchiveName = (name) => {
     if (!name) return;
@@ -896,6 +944,10 @@ document.addEventListener('DOMContentLoaded', () => {
               ${e.override_names.map(n => `<button class="archive-name-chip" style="border-color:#86efac; color:#15803d;" onclick="searchArchiveName('${esc(n)}')">${esc(n)}</button>`).join('')}
             </div>
           </div>` : ''}
+          ${(typeof PDF_VOTER_ENTRIES !== 'undefined' && Array.isArray(PDF_VOTER_ENTRIES[e.pdf]) && PDF_VOTER_ENTRIES[e.pdf].length) ? `
+          <button class="btn btn-secondary" onclick="openVoterList('${esc(e.pdf)}')" style="width:100%; padding:9px; font-size:0.8rem; font-weight:800; margin-bottom:12px; border-color:#86efac; color:#15803d;">
+            👥 ভোটার তালিকা দেখুন (${asciiToBn(PDF_VOTER_ENTRIES[e.pdf].length)} জন) — নাম, ভোটার নং, পিতাসহ
+          </button>` : ''}
         </div>
         <div class="card-actions">
           <button class="btn btn-primary btn-view-pdf" onclick="openArchiveViewer('${i}')">

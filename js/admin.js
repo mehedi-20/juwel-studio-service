@@ -401,15 +401,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'তালিকা লোড হয়নি');
       pdfListCache = data.files || [];
+      const optionHtml = (f) => `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${(f.names && f.names.length) ? ' ✓(' + f.names.length + ' নাম)' : ''}</option>`;
       if (overrideSelect) {
-        overrideSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' +
-          pdfListCache.map(f =>
-            `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${(f.names && f.names.length) ? ' ✓(' + f.names.length + ' নাম)' : ''}</option>`
-          ).join('');
+        overrideSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
         overrideSelect.addEventListener('change', () => {
           const f = pdfListCache.find(x => x.pdf === overrideSelect.value);
           if (overrideNames) overrideNames.value = (f && f.names) ? f.names.join('\n') : '';
         });
+      }
+      if (ocrPdfSelect) {
+        ocrPdfSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
       }
     } catch (e) {
       console.warn('[Overrides] list error:', e);
@@ -454,7 +455,76 @@ document.addEventListener('DOMContentLoaded', () => {
   // বাল্ক ট্যাব খুললে তালিকা লোড
   if (tabBulkForm) {
     const origBulkClick = tabBulkForm.onclick;
-    tabBulkForm.addEventListener('click', () => { loadPdfList(); });
+    tabBulkForm.addEventListener('click', () => { loadPdfList(); pollOcrStatus(); });
+  }
+
+  /* ---------- OCR বাটন + স্ট্যাটাস ---------- */
+  const ocrPdfSelect = document.getElementById('ocr_pdf_select');
+  const btnOcrOne = document.getElementById('btnOcrOne');
+  const btnOcrAll = document.getElementById('btnOcrAll');
+  const ocrStatus = document.getElementById('ocrStatus');
+  let ocrPollTimer = null;
+
+  function pollOcrStatus() {
+    fetch('/api/ocr-status').then(r => r.json()).then(data => {
+      const st = data.state || {};
+      if (!ocrStatus) return;
+      let msg = '';
+      if (st.running && st.current) {
+        msg = '🤖 পড়ছে: ' + st.current + '\n' + (st.log || []).slice(-4).join('\n');
+        ocrStatus.style.color = '#7c3aed';
+      } else if ((st.queued || 0) > 0) {
+        msg = '⏳ কিউতে ' + st.queued + ' টি PDF অপেক্ষায়...';
+        ocrStatus.style.color = '#b45309';
+      } else if (st.lastResult) {
+        msg = (st.lastResult.exitCode === 0 ? '✓ শেষ হয়েছে: ' : '✗ ব্যর্থ: ') + st.lastResult.pdf + '\nমোট সম্পন্ন: ' + (st.done || 0);
+        ocrStatus.style.color = st.lastResult.exitCode === 0 ? 'var(--success)' : 'var(--accent)';
+      } else {
+        msg = 'কিউ খালি — একটি PDF বেছে নিন অথবা সব পড়িয়ে দিন';
+        ocrStatus.style.color = 'var(--text-muted)';
+      }
+      ocrStatus.textContent = msg;
+
+      const busy = st.running || (st.queued || 0) > 0;
+      clearTimeout(ocrPollTimer);
+      if (busy) ocrPollTimer = setTimeout(pollOcrStatus, 5000);
+    }).catch(() => {});
+  }
+
+  if (btnOcrOne) {
+    btnOcrOne.addEventListener('click', async () => {
+      const pdf = ocrPdfSelect ? ocrPdfSelect.value : '';
+      if (!pdf) { if (ocrStatus) ocrStatus.textContent = '⚠️ আগে একটি PDF বেছে নিন'; return; }
+      try {
+        const resp = await fetch('/api/ocr-pdf', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdf })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+        if (ocrStatus) { ocrStatus.style.color = '#7c3aed'; ocrStatus.textContent = '🤖 শুরু হয়েছে... (কয়েক মিনিট লাগবে)'; }
+        showToast('OCR শুরু হয়েছে ✓');
+        pollOcrStatus();
+      } catch (e) {
+        if (ocrStatus) { ocrStatus.style.color = 'var(--accent)'; ocrStatus.textContent = 'শুরু করা যায়নি: ' + e.message; }
+      }
+    });
+  }
+
+  if (btnOcrAll) {
+    btnOcrAll.addEventListener('click', async () => {
+      if (!confirm('সব PDF একে একে পড়া হবে — এতে কয়েক ঘণ্টা লাগতে পারে (ব্যাকগ্রাউন্ডে চলবে)। চালাবেন?')) return;
+      try {
+        const resp = await fetch('/api/ocr-queue', { method: 'POST' });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+        if (ocrStatus) { ocrStatus.style.color = '#b45309'; ocrStatus.textContent = '⏳ ' + data.added + ' টি PDF কিউতে যোগ হয়েছে — একে একে পড়া হবে'; }
+        showToast('সব PDF কিউতে যোগ হয়েছে ✓');
+        pollOcrStatus();
+      } catch (e) {
+        if (ocrStatus) { ocrStatus.style.color = 'var(--accent)'; ocrStatus.textContent = 'ব্যর্থ: ' + e.message; }
+      }
+    });
   }
 
   /* ==========================================================================

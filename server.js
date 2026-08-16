@@ -71,6 +71,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // OCR: PDF থেকে অটো নাম পড়া
+  if (req.method === 'POST' && pathname === '/api/ocr-pdf') {
+    handleOcrPdf(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ocr-queue') {
+    handleOcrQueue(req, res);
+    return;
+  }
+  if (req.method === 'GET' && pathname === '/api/ocr-status') {
+    handleOcrStatus(req, res);
+    return;
+  }
+
   // Resolve the requested path strictly inside the project root
   // (normalize neutralizes ../ traversal attempts)
   const filePath = path.normalize(path.join(ROOT, pathname));
@@ -194,6 +208,116 @@ function handlePdfList(req, res) {
   } catch (e) {
     sendJson(res, 500, { ok: false, error: e.message });
   }
+}
+
+/* ---------- OCR কিউ সিস্টেম ---------- */
+const OCR_STATUS_FILE = path.join(ROOT, '.ocr-status.json');
+let ocrQueue = [];
+let ocrState = { running: false, current: null, log: [], done: 0, total: 0, lastResult: null };
+
+function saveOcrStatus() {
+  try { fs.writeFileSync(OCR_STATUS_FILE, JSON.stringify(ocrState)); } catch (e) {}
+}
+function loadOcrStatus() {
+  try {
+    ocrState = { ...ocrState, ...JSON.parse(fs.readFileSync(OCR_STATUS_FILE, 'utf8')) };
+  } catch (e) { /* first run */ }
+}
+loadOcrStatus();
+
+function readBody(req, cb, limit) {
+  let raw = '';
+  req.on('data', (c) => {
+    raw += c;
+    if (raw.length > (limit || 5 * 1024 * 1024)) req.destroy();
+  });
+  req.on('end', () => cb(raw));
+}
+
+function runNextOcr() {
+  if (ocrState.running || !ocrQueue.length) {
+    saveOcrStatus();
+    return;
+  }
+  const pdf = ocrQueue.shift();
+  ocrState.running = true;
+  ocrState.current = pdf;
+  ocrState.log = [];
+  ocrState.lastResult = null;
+  saveOcrStatus();
+
+  const child = spawn(process.execPath, ['tools/ocr-voter-pdf.mjs', pdf, '--save'], {
+    cwd: ROOT,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  child.stdout.on('data', (d) => {
+    const lines = String(d).split('\n').filter(Boolean);
+    ocrState.log = [...ocrState.log, ...lines].slice(-40);
+    saveOcrStatus();
+  });
+  child.stderr.on('data', (d) => {
+    ocrState.log = [...ocrState.log, ...String(d).split('\n').filter(Boolean)].slice(-40);
+    saveOcrStatus();
+  });
+  child.on('exit', (code) => {
+    ocrState.running = false;
+    ocrState.done += 1;
+    ocrState.lastResult = { pdf, exitCode: code };
+    if (code === 0) ocrState.log.push('✓ সম্পন্ন: ' + pdf);
+    else ocrState.log.push('✗ ব্যর্থ (' + code + '): ' + pdf);
+    ocrState.current = null;
+    saveOcrStatus();
+    setTimeout(runNextOcr, 500);
+  });
+}
+
+function handleOcrPdf(req, res) {
+  readBody(req, (raw) => {
+    try {
+      const { pdf } = JSON.parse(raw || '{}');
+      if (!pdf || !String(pdf).startsWith('pdfs/') || !fs.existsSync(path.join(ROOT, String(pdf)))) {
+        return sendJson(res, 400, { ok: false, error: 'ভুল PDF পাথ' });
+      }
+      if (ocrQueue.includes(pdf) || (ocrState.running && ocrState.current === pdf)) {
+        return sendJson(res, 409, { ok: false, error: 'এই PDF-এর OCR ইতিমধ্যে কিউতে আছে' });
+      }
+      ocrQueue.push(pdf);
+      ocrState.total += 1;
+      saveOcrStatus();
+      runNextOcr();
+      sendJson(res, 200, { ok: true, queued: true });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+function handleOcrQueue(req, res) {
+  // সব PDF (নাম-ওভাররাইডবিহীনগুলো আগে) কিউতে দেয়
+  try {
+    const overrides = readOverrides();
+    const files = fs.readdirSync(path.join(ROOT, 'pdfs'))
+      .filter(f => f.endsWith('.pdf'))
+      .sort()
+      .map(f => 'pdfs/' + f);
+    const pending = files.filter(f => !overrides[f] || !overrides[f].length);
+    let added = 0;
+    for (const f of pending) {
+      if (ocrQueue.includes(f) || (ocrState.running && ocrState.current === f)) continue;
+      ocrQueue.push(f);
+      added++;
+    }
+    ocrState.total += added;
+    saveOcrStatus();
+    runNextOcr();
+    sendJson(res, 200, { ok: true, added, queued: ocrQueue.length, running: ocrState.running });
+  } catch (e) {
+    sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+function handleOcrStatus(req, res) {
+  sendJson(res, 200, { ok: true, state: ocrState });
 }
 
 function handlePdfNames(req, res) {
