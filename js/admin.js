@@ -5,6 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
      1. Password Security Check (Admin Panel)
      ========================================================================== */
   const ALLOWED_PASSWORDS = ["mehedi987", "Julfikar5320@"];
+
+  // সার্ভারের POST API গুলোতে অ্যাডমিন পাসওয়ার্ড হেডার হিসেবে পাঠানো হয়
+  // (সার্ভার এখন শুধু পরিচিত পাসওয়ার্ডের অনুরোধই গ্রহণ করে)
+  const adminFetch = (url, opts = {}) => {
+    opts.headers = { ...(opts.headers || {}), 'x-admin-pass': ALLOWED_PASSWORDS[0] };
+    return fetch(url, opts);
+  };
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
   const loginPasswordInput = document.getElementById('loginPassword');
@@ -57,6 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           showToast('স্বাগতম অ্যাডমিন! প্যানেলে প্রবেশাধিকার মঞ্জুর করা হয়েছে। ✓');
           initFirebaseConnection();
+          // লগইনের পরই OCR স্ট্যাটাস রিফ্রেশ শুরু (ট্যাব ক্লিকের অপেক্ষা না করে)
+          try { loadPdfList(); } catch (e) {}
+          try { pollOcrStatus(); } catch (e) {}
         }, 300);
       }
     } else {
@@ -264,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         if (bulkResult) bulkResult.textContent = '📥 ইমপোর্ট হচ্ছে, দয়া করে অপেক্ষা করুন...';
-        const resp = await fetch('/api/bulk-import', {
+        const resp = await adminFetch('/api/bulk-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type, records })
@@ -348,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (!payloadFiles.length) continue;
 
-          const resp = await fetch('/api/bulk-pdf-upload', {
+          const resp = await adminFetch('/api/bulk-pdf-upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: payloadFiles })
@@ -397,11 +407,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadPdfList() {
     try {
-      const resp = await fetch('/api/pdf-list');
+      const resp = await adminFetch('/api/pdf-list');
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'তালিকা লোড হয়নি');
       pdfListCache = data.files || [];
-      const optionHtml = (f) => `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${(f.names && f.names.length) ? ' ✓(' + f.names.length + ' নাম)' : ''}</option>`;
+      // ✓(N জন) = OCR সম্পন্ন ও ভোটার পাওয়া গেছে | ✓(০) = OCR হয়েছে কিন্তু ভোটার মেলেনি (যেমন পর্চা)
+      const optionHtml = (f) => {
+        let mark = '';
+        if (f.voters !== null && f.voters !== undefined) mark = ` ✓(${f.voters} জন)`;
+        else if (f.names && f.names.length) mark = ` ✓(${f.names.length} নাম)`;
+        return `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${mark}</option>`;
+      };
       if (overrideSelect) {
         overrideSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
         overrideSelect.addEventListener('change', () => {
@@ -412,11 +428,79 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ocrPdfSelect) {
         ocrPdfSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
       }
+
+      // 📊 OCR স্ট্যাটাস টেবিল রেন্ডার — কোনটা হয়েছে, কোনটা বাকি
+      renderOcrTable();
     } catch (e) {
       console.warn('[Overrides] list error:', e);
       if (overrideSelect) overrideSelect.innerHTML = '<option value="">তালিকা লোড করা যায়নি (সার্ভার চালু আছে তো?)</option>';
+      const tbody = document.getElementById('ocrTableBody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="padding:14px; text-align:center; color:var(--accent);">⚠️ তালিকা লোড হয়নি — সার্ভার চালু আছে তো? রিফ্রেশ করে দেখুন</td></tr>';
     }
   }
+
+  function renderOcrTable() {
+    const tbody = document.getElementById('ocrTableBody');
+    const summary = document.getElementById('ocrSummary');
+    if (!tbody) return;
+
+    const done = pdfListCache.filter(f => f.voters !== null && f.voters !== undefined);
+    const pending = pdfListCache.filter(f => f.voters === null || f.voters === undefined);
+    const totalVoters = done.reduce((s, f) => s + (f.voters || 0), 0);
+
+    if (summary) {
+      summary.innerHTML = `✅ <b>${done.length}</b> টি PDF-এর OCR সম্পন্ন — মোট <b>${totalVoters}</b> জন ভোটার পড়া হয়েছে<br>⏳ বাকি: <b>${pending.length}</b> টি PDF`;
+    }
+
+    if (!pending.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:16px; text-align:center; color:var(--success); font-weight:700;">🎉 সব PDF-এর OCR হয়ে গেছে!</td></tr>';
+      return;
+    }
+
+    // ভোটার তালিকার PDF (com_) আগে দেখাই — ওগুলোতেই আসল নাম থাকে
+    const sortKey = (f) => (f.file_name.includes('com_') ? 0 : 1);
+    const rows = pdfListCache
+      .filter(f => f.voters === null || f.voters === undefined)
+      .sort((a, b) => sortKey(a) - sortKey(b) || a.file_name.localeCompare(b.file_name))
+      .map(f => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
+          <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">—</td>
+          <td style="padding:7px 10px; text-align:center;"><span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">⏳ বাকি</span></td>
+          <td style="padding:7px 10px; text-align:center;">
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#7c3aed 0%,#4c1d95 100%);" onclick="startOcrPdf('${f.pdf.replace(/'/g, "\\'")}')">🤖 পড়ুন</button>
+          </td>
+        </tr>`).join('');
+
+    // সম্পন্ন গুলো নিচে ধূসর করে
+    const doneRows = done.map(f => `
+      <tr style="border-bottom:1px solid #f1f5f9; opacity:0.65;">
+        <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
+        <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">${f.voters}</td>
+        <td style="padding:7px 10px; text-align:center;"><span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">✅ সম্পন্ন</span></td>
+        <td style="padding:7px 10px; text-align:center; font-size:0.72rem; color:var(--text-muted);">—</td>
+      </tr>`).join('');
+
+    tbody.innerHTML = rows + doneRows;
+  }
+
+  // টেবিলের "পড়ুন" বাটন — একটি PDF-এর OCR শুরু
+  window.startOcrPdf = async (pdf) => {
+    try {
+      const resp = await adminFetch('/api/ocr-pdf', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdf })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.duplicate) { showToast('⚠️ এই PDF আগেই হয়ে গেছে'); return; }
+      if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+      showToast('🤖 OCR শুরু হয়েছে: ' + pdf.split('/').pop());
+      setTimeout(loadPdfList, 3000);
+      pollOcrStatus();
+    } catch (e) {
+      showToast('ব্যর্থ: ' + e.message);
+    }
+  };
 
   if (btnSaveOverrides) {
     btnSaveOverrides.addEventListener('click', async () => {
@@ -429,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const names = raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
       try {
         if (overrideResult) overrideResult.textContent = '💾 সেভ হচ্ছে...';
-        const resp = await fetch('/api/pdf-names', {
+        const resp = await adminFetch('/api/pdf-names', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pdf, names })
@@ -466,9 +550,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let ocrPollTimer = null;
 
   function pollOcrStatus() {
-    fetch('/api/ocr-status').then(r => r.json()).then(data => {
+    adminFetch('/api/ocr-status').then(r => r.json()).then(data => {
       const st = data.state || {};
       if (!ocrStatus) return;
+      // মোট কতগুলো PDF-এর OCR সম্পন্ন + কতজন ভোটার পড়া হয়েছে
+      const pr = data.processed || {};
+      const summary = (pr.pdfs ? `✅ মোট ${pr.pdfs} টি PDF-এর OCR সম্পন্ন — ${pr.voters} জন ভোটার পড়া হয়েছে\n` : '');
       let msg = '';
       if (st.running && st.current) {
         msg = '🤖 পড়ছে: ' + st.current + '\n' + (st.log || []).slice(-4).join('\n');
@@ -483,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
         msg = 'কিউ খালি — একটি PDF বেছে নিন অথবা সব পড়িয়ে দিন';
         ocrStatus.style.color = 'var(--text-muted)';
       }
-      ocrStatus.textContent = msg;
+      ocrStatus.textContent = summary + msg;
 
       const busy = st.running || (st.queued || 0) > 0;
       clearTimeout(ocrPollTimer);
@@ -496,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pdf = ocrPdfSelect ? ocrPdfSelect.value : '';
       if (!pdf) { if (ocrStatus) ocrStatus.textContent = '⚠️ আগে একটি PDF বেছে নিন'; return; }
       try {
-        const resp = await fetch('/api/ocr-pdf', {
+        const resp = await adminFetch('/api/ocr-pdf', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pdf })
         });
@@ -515,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnOcrAll.addEventListener('click', async () => {
       if (!confirm('সব PDF একে একে পড়া হবে — এতে কয়েক ঘণ্টা লাগতে পারে (ব্যাকগ্রাউন্ডে চলবে)। চালাবেন?')) return;
       try {
-        const resp = await fetch('/api/ocr-queue', { method: 'POST' });
+        const resp = await adminFetch('/api/ocr-queue', { method: 'POST' });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
         if (ocrStatus) { ocrStatus.style.color = '#b45309'; ocrStatus.textContent = '⏳ ' + data.added + ' টি PDF কিউতে যোগ হয়েছে — একে একে পড়া হবে'; }
@@ -583,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         payload.fileBase64 = String(dataUrl).split(',')[1] || '';
         payload.fileName = file.name;
       }
-      const resp = await fetch('/api/upload-record', {
+      const resp = await adminFetch('/api/upload-record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
