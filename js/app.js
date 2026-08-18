@@ -618,9 +618,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (matchedRecords.length > 0) renderNidResults(matchedRecords, q);
     const voterResults = collectVoterMatches(archiveHits, archiveTokens);
     if (voterResults.length > 0) {
-      // ক্লিন ফলাফল: ভোটার কার্ড এলেই আর্কাইভ সেকশন দেখানোর দরকার নেই
-      hideArchiveSection();
+      // ভোটার কার্ড + শুধু-টেক্সট ফাইল (যেমন খতিয়ান বই/পর্চা) আর্কাইভে
       renderVoterCards(voterResults, archiveTokens);
+      const textOnly = archiveHits.filter(e => !(Array.isArray(e.voters) && e.voters.length));
+      renderArchiveSection(textOnly, archiveTokens);
     } else {
       renderArchiveSection(archiveHits, archiveTokens);
     }
@@ -735,9 +736,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (matchedRecords.length > 0) renderPorchaResults(matchedRecords, q);
     const voterResults = collectVoterMatches(archiveHits, archiveTokens);
     if (voterResults.length > 0) {
-      // ক্লিন ফলাফল: ভোটার কার্ড এলেই আর্কাইভ সেকশন দেখানোর দরকার নেই
-      hideArchiveSection();
+      // ভোটার কার্ড + শুধু-টেক্সট ফাইল (যেমন খতিয়ান বই/পর্চা) আর্কাইভে
       renderVoterCards(voterResults, archiveTokens);
+      const textOnly = archiveHits.filter(e => !(Array.isArray(e.voters) && e.voters.length));
+      renderArchiveSection(textOnly, archiveTokens);
     } else {
       renderArchiveSection(archiveHits, archiveTokens);
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juwel-telecom-esheba-v11';
+const CACHE_NAME = 'juwel-telecom-esheba-v12';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
