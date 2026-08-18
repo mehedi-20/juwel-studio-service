@@ -64,6 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           showToast('স্বাগতম অ্যাডমিন! প্যানেলে প্রবেশাধিকার মঞ্জুর করা হয়েছে। ✓');
           initFirebaseConnection();
+          // লগইনের পরই OCR স্ট্যাটাস রিফ্রেশ শুরু (ট্যাব ক্লিকের অপেক্ষা না করে)
+          try { loadPdfList(); } catch (e) {}
+          try { pollOcrStatus(); } catch (e) {}
         }, 300);
       }
     } else {
@@ -431,6 +434,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       console.warn('[Overrides] list error:', e);
       if (overrideSelect) overrideSelect.innerHTML = '<option value="">তালিকা লোড করা যায়নি (সার্ভার চালু আছে তো?)</option>';
+      const tbody = document.getElementById('ocrTableBody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="padding:14px; text-align:center; color:var(--accent);">⚠️ তালিকা লোড হয়নি — সার্ভার চালু আছে তো? রিফ্রেশ করে দেখুন</td></tr>';
     }
   }
 

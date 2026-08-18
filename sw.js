@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juwel-telecom-esheba-v13';
+const CACHE_NAME = 'juwel-telecom-esheba-v14';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -75,8 +75,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return; // pass CDN/font requests straight through
 
   event.respondWith(
-    // ignoreSearch makes ?v=x.y cache-busted URLs match the pre-cached assets
-    caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
+    // IMPORTANT: NOT using ignoreSearch — ?v=x.y versioned URLs must NOT
+    // match older cached copies, otherwise browsers keep running stale JS
+    // after updates (this caused "admin panel stuck on loading" + old
+    // search behavior for users). Versioned requests always go to network.
+    caches.match(request).then((cachedResponse) => {
       const networkFetch = fetch(request).then((networkResponse) => {
         // Cache successful same-origin responses in the background
         if (networkResponse && networkResponse.ok) {
