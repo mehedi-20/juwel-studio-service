@@ -970,10 +970,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ভোটার ফলাফল — NID কার্ডের মতোই ক্লিন premium-card (আর্কাইভের গার্বেজ টেক্সট ছাড়া)
-  function renderVoterCards(voters, tokens) {
-    resultsGrid.innerHTML += voters.map((v, i) => {
-      const q = tokens ? tokens.join(' ') : '';
-      return `
+  // পারফরম্যান্স: একসাথে ১০০টার বেশি কার্ড রেন্ডার করলে মোবাইলে পেজ ভারী হতে পারে,
+  // তাই প্রথমে ১০০টা দেখাই + "আরও দেখুন" বাটন (বাকিগুলো ক্লিকে আসে)।
+  const VOTER_BATCH = 100;
+  let voterBatchOffset = 0;
+  let voterBatchAll = [];
+  let voterBatchTokens = [];
+
+  const renderVoterBatch = () => {
+    const slice = voterBatchAll.slice(voterBatchOffset, voterBatchOffset + VOTER_BATCH);
+    if (!slice.length) return;
+    const q = voterBatchTokens ? voterBatchTokens.join(' ') : '';
+    const html = slice.map((v) => `
       <div class="premium-card">
         <div class="card-header-banner" style="background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);">
           <h3 class="card-title-main" title="${esc(v.name)}">${highlight(v.name, q)}</h3>
@@ -1014,8 +1022,32 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       </div>
-      `;
-    }).join('');
+      `).join('');
+
+    resultsGrid.insertAdjacentHTML('beforeend', html);
+    voterBatchOffset += slice.length;
+
+    // বাকি থাকলে "আরও দেখুন" বাটন
+    const existing = document.getElementById('voterLoadMore');
+    if (existing) existing.remove();
+    if (voterBatchOffset < voterBatchAll.length) {
+      const btn = document.createElement('div');
+      btn.id = 'voterLoadMore';
+      btn.style.cssText = 'text-align:center; margin:18px 0 6px;';
+      btn.innerHTML = `<button class="btn btn-secondary" style="padding:12px 28px; font-size:0.9rem; font-weight:800;" onclick="loadMoreVoters()">
+        আরও দেখুন (${asciiToBn(voterBatchAll.length - voterBatchOffset)} জন) ↓
+      </button>`;
+      resultsGrid.appendChild(btn);
+    }
+  };
+
+  window.loadMoreVoters = () => renderVoterBatch();
+
+  function renderVoterCards(voters, tokens) {
+    voterBatchAll = voters;
+    voterBatchTokens = tokens;
+    voterBatchOffset = 0;
+    renderVoterBatch();
   }
 
   function renderArchiveSection(hits, tokens = []) {
