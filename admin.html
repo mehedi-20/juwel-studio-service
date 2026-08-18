@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
-  <link rel="stylesheet" href="css/style.css?v=3.8">
+  <link rel="stylesheet" href="css/style.css?v=3.9">
   <style>
     .admin-card {
       max-width: 800px;
@@ -486,6 +486,9 @@
           </button>
         </div>
         <div id="ocrStatus" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700; white-space: pre-wrap;"></div>
+        <div style="margin-top:8px; font-size:0.75rem; color:var(--text-muted);">
+          ℹ️ একবার যে PDF-এর OCR হয়ে গেছে (ভোটার মেলুক বা না মেলুক) সেটা আবার হবে না — duplicate থেকে সুরক্ষিত। ড্রপডাউনে <b>✓(N জন)</b> = সম্পন্ন, <b>✓(০)</b> = হয়েছে কিন্তু ভোটার মেলেনি (যেমন পর্চা/নমুনা PDF)।
+        </div>
       </div>
 
       <!-- Manage Section / Show lists -->
@@ -523,10 +526,10 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
   <!-- Load Scripts -->
-  <script src="js/data.js?v=3.8"></script>
-  <script src="js/data-uploads.js?v=3.8"></script>
-  <script src="js/firebase-config.js?v=3.8"></script>
-  <script src="js/admin.js?v=3.8"></script>
+  <script src="js/data.js?v=3.9"></script>
+  <script src="js/data-uploads.js?v=3.9"></script>
+  <script src="js/firebase-config.js?v=3.9"></script>
+  <script src="js/admin.js?v=3.9"></script>
 
 </body>
 </html>

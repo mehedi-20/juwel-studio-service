@@ -408,7 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'তালিকা লোড হয়নি');
       pdfListCache = data.files || [];
-      const optionHtml = (f) => `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${(f.names && f.names.length) ? ' ✓(' + f.names.length + ' নাম)' : ''}</option>`;
+      // ✓(N জন) = OCR সম্পন্ন ও ভোটার পাওয়া গেছে | ✓(০) = OCR হয়েছে কিন্তু ভোটার মেলেনি (যেমন পর্চা)
+      const optionHtml = (f) => {
+        let mark = '';
+        if (f.voters !== null && f.voters !== undefined) mark = ` ✓(${f.voters} জন)`;
+        else if (f.names && f.names.length) mark = ` ✓(${f.names.length} নাম)`;
+        return `<option value="${f.pdf.replace(/"/g, '&quot;')}">${f.file_name}${mark}</option>`;
+      };
       if (overrideSelect) {
         overrideSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
         overrideSelect.addEventListener('change', () => {
@@ -476,6 +482,9 @@ document.addEventListener('DOMContentLoaded', () => {
     adminFetch('/api/ocr-status').then(r => r.json()).then(data => {
       const st = data.state || {};
       if (!ocrStatus) return;
+      // মোট কতগুলো PDF-এর OCR সম্পন্ন + কতজন ভোটার পড়া হয়েছে
+      const pr = data.processed || {};
+      const summary = (pr.pdfs ? `✅ মোট ${pr.pdfs} টি PDF-এর OCR সম্পন্ন — ${pr.voters} জন ভোটার পড়া হয়েছে\n` : '');
       let msg = '';
       if (st.running && st.current) {
         msg = '🤖 পড়ছে: ' + st.current + '\n' + (st.log || []).slice(-4).join('\n');
@@ -490,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         msg = 'কিউ খালি — একটি PDF বেছে নিন অথবা সব পড়িয়ে দিন';
         ocrStatus.style.color = 'var(--text-muted)';
       }
-      ocrStatus.textContent = msg;
+      ocrStatus.textContent = summary + msg;
 
       const busy = st.running || (st.queued || 0) > 0;
       clearTimeout(ocrPollTimer);

@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const UPLOADS_FILE = path.join(ROOT, 'js', 'data-uploads.js');
 const OVERRIDES_FILE = path.join(ROOT, 'js', 'pdf-name-overrides.js');
+const VOTER_ENTRIES_FILE = path.join(ROOT, 'js', 'pdf-voter-entries.js');
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 
 // অ্যাডমিন প্যানেলের পাসওয়ার্ড (js/admin.js-এর সাথে মিলিয়ে রাখুন)।
@@ -271,6 +272,21 @@ function readOverrides() {
   }
 }
 
+// OCR-সম্পন্ন PDF-গুলোর তালিকা (pdf-voter-entries.js) — কোনো PDF একবার এতে
+// ঢুকলে (০ জন হলেও) সেটা "সম্পন্ন" ধরা হয়, যাতে duplicate OCR না হয়।
+function readVoterEntriesDb() {
+  try {
+    const src = fs.readFileSync(VOTER_ENTRIES_FILE, 'utf8');
+    const start = src.indexOf('{');
+    const end = src.lastIndexOf('}');
+    if (start === -1 || end === -1) return {};
+    return JSON.parse(src.slice(start, end + 1));
+  } catch (e) {
+    console.warn('[VoterEntries] read error:', e.message);
+    return {};
+  }
+}
+
 function writeOverrides(obj) {
   const header = '// ⚠️ অ্যাডমিন প্যানেল থেকে দেওয়া সঠিক নামের তালিকা — সার্ভার নিজে থেকে লিখে\n';
   fs.writeFileSync(OVERRIDES_FILE, header + 'const PDF_NAME_OVERRIDES = ' + JSON.stringify(obj, null, 2) + ';\n');
@@ -279,15 +295,25 @@ function writeOverrides(obj) {
 function handlePdfList(req, res) {
   try {
     const overrides = readOverrides();
+    const entriesDb = readVoterEntriesDb();
     const files = fs.readdirSync(path.join(ROOT, 'pdfs'))
       .filter(f => f.endsWith('.pdf'))
       .sort()
-      .map(f => ({
-        pdf: 'pdfs/' + f,
-        file_name: f,
-        size: fs.statSync(path.join(ROOT, 'pdfs', f)).size,
-        names: overrides['pdfs/' + f] || []
-      }));
+      .map(f => {
+        const key = 'pdfs/' + f;
+        // voters: null = OCR হয়নি | সংখ্যা = OCR-পড়া ভোটার কতজন (০ মানে হয়েছে কিন্তু কেউ পাওয়া যায়নি)
+        let voters = null;
+        if (Object.prototype.hasOwnProperty.call(entriesDb, key)) {
+          voters = Array.isArray(entriesDb[key]) ? entriesDb[key].length : 0;
+        }
+        return {
+          pdf: key,
+          file_name: f,
+          size: fs.statSync(path.join(ROOT, 'pdfs', f)).size,
+          names: overrides[key] || [],
+          voters
+        };
+      });
     sendJson(res, 200, { ok: true, files, overrides });
   } catch (e) {
     sendJson(res, 500, { ok: false, error: e.message });
@@ -358,9 +384,15 @@ function runNextOcr() {
 function handleOcrPdf(req, res) {
   readBody(req, (raw) => {
     try {
-      const { pdf } = JSON.parse(raw || '{}');
+      const { pdf, force } = JSON.parse(raw || '{}');
       if (!pdf || !String(pdf).startsWith('pdfs/') || !fs.existsSync(path.join(ROOT, String(pdf)))) {
         return sendJson(res, 400, { ok: false, error: 'ভুল PDF পাথ' });
+      }
+      // duplicate সুরক্ষা: একবার OCR হয়ে গেলে (০ জন হলেও) আবার হয় না
+      const entriesDb = readVoterEntriesDb();
+      if (Object.prototype.hasOwnProperty.call(entriesDb, pdf) && !force) {
+        const n = Array.isArray(entriesDb[pdf]) ? entriesDb[pdf].length : 0;
+        return sendJson(res, 409, { ok: false, duplicate: true, error: `এই PDF-এর OCR আগেই হয়ে গেছে (${n} জন) — আবার চাইলে force:true দিন` });
       }
       if (ocrQueue.includes(pdf) || (ocrState.running && ocrState.current === pdf)) {
         return sendJson(res, 409, { ok: false, error: 'এই PDF-এর OCR ইতিমধ্যে কিউতে আছে' });
@@ -377,14 +409,15 @@ function handleOcrPdf(req, res) {
 }
 
 function handleOcrQueue(req, res) {
-  // সব PDF (নাম-ওভাররাইডবিহীনগুলো আগে) কিউতে দেয়
+  // শুধু যেগুলোর OCR এখনো হয়নি (pdf-voter-entries.js-এ নেই) সেগুলোই কিউতে দেয়
+  // — আগে override-এ নাম শূন্য হলে আবার কিউতে ঢুকত (duplicate), এখন আর না।
   try {
-    const overrides = readOverrides();
+    const entriesDb = readVoterEntriesDb();
     const files = fs.readdirSync(path.join(ROOT, 'pdfs'))
       .filter(f => f.endsWith('.pdf'))
       .sort()
       .map(f => 'pdfs/' + f);
-    const pending = files.filter(f => !overrides[f] || !overrides[f].length);
+    const pending = files.filter(f => !Object.prototype.hasOwnProperty.call(entriesDb, f));
     let added = 0;
     for (const f of pending) {
       if (ocrQueue.includes(f) || (ocrState.running && ocrState.current === f)) continue;
@@ -401,7 +434,16 @@ function handleOcrQueue(req, res) {
 }
 
 function handleOcrStatus(req, res) {
-  sendJson(res, 200, { ok: true, state: ocrState });
+  // কতগুলো PDF-এর OCR সম্পন্ন + মোট কতজন ভোটার পড়া হয়েছে
+  const entriesDb = readVoterEntriesDb();
+  let processedPdfs = 0;
+  let processedVoters = 0;
+  for (const [k, v] of Object.entries(entriesDb)) {
+    if (!k.startsWith('pdfs/')) continue;
+    processedPdfs++;
+    if (Array.isArray(v)) processedVoters += v.length;
+  }
+  sendJson(res, 200, { ok: true, state: ocrState, processed: { pdfs: processedPdfs, voters: processedVoters } });
 }
 
 function handlePdfNames(req, res) {
