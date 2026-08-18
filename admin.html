@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
-  <link rel="stylesheet" href="css/style.css?v=3.9">
+  <link rel="stylesheet" href="css/style.css?v=4.0">
   <style>
     .admin-card {
       max-width: 800px;
@@ -409,11 +409,12 @@
 
         <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
 
-        <h4 style="font-size:1rem; color: var(--accent); margin-bottom: 10px;">📁 PDF ফাইল বাল্ক আপলোড (খতিয়ান / ভোটার তালিকার PDF)</h4>
+        <h4 style="font-size:1rem; color: var(--accent); margin-bottom: 10px;">📁 PDF ফাইল বাল্ক আপলোড (খতিয়ান/ই-পর্চা / ভোটার তালিকার PDF)</h4>
 
         <div class="bulk-help" style="border-left-color: var(--accent);">
-          <b>যেভাবে কাজ করবে:</b> সব PDF একসাথে সিলেক্ট করে আপলোড করলেই প্রতিটি PDF থেকে টেক্সট বের হয়ে সার্চ ইনডেক্সে যোগ হবে — তখন PDF-এর ভেতরের যেকোনো নাম লিখে খুঁজলেই ফলাফল আসবে।<br><br>
-          <b>⚠️ স্ক্যান করা PDF (ছবি):</b> যেসব PDF ছবি থেকে স্ক্যান করা, সেগুলোর ভেতরে টেক্সট থাকে না — সেগুলোর <b>ফাইলের নামে খতিয়ান নং/মৌজা/নাম রেখে দিন</b> (যেমন: <code>খতিয়ান-২৬-উত্তর-চাঁদখানা-হিমাংশু.pdf</code>) — তাহলে নাম ধরে খুঁজে পাওয়া যাবে।<br>
+          <b>ই-পর্চা PDF আপলোডের সঠিক নিয়ম:</b> আপনার পর্চা PDF (eporcha থেকে ডাউনলোড করা) নিচে সিলেক্ট করে আপলোড দিন। PDF-এর ভেতরে টেক্সট-লেয়ার থাকলে খতিয়ান নং/মৌজা/মালিকের নাম <b>সাথে সাথে সার্চে আসবে</b>।<br><br>
+          <b>⚠️ স্ক্যান করা পর্চা (ছবি):</b> পর্চা ছবি-স্ক্যান হলে ভেতরে টেক্সট থাকে না। তখন <b>ফাইলের নামে মালিকের নাম/খতিয়ান নং রাখুন</b> (যেমন: <code>খতিয়ান-২৬-উত্তর-চাঁদখানা-রহিম.pdf</code>) — নাম ধরে খুঁজে পাওয়া যাবে।<br>
+          <b>💡 সবচেয়ে ভালো উপায়:</b> পর্চার তথ্য (খতিয়ান নং, মৌজা, মালিক, দাগ) <b>"📄 ই-পর্চা / খতিয়ান তথ্য আপলোড"</b> ট্যাবে লিখে সেভ করলে — PDF ছাড়াই নিখুঁতভাবে সার্চে আসে।<br>
           <small style="color:var(--text-muted)">এক ব্যাচে ১০টা করে ফাইল আপলোড হবে — সবশেষে সারাংশ দেখানো হবে কোন কোন PDF-এ টেক্সট পাওয়া গেছে।</small>
         </div>
 
@@ -465,30 +466,36 @@
 
         <div class="bulk-help" style="border-left-color: #7c3aed;">
           <b>এক ক্লিকে PDF থেকে সব নাম পড়বে:</b> মেশিন PDF-এর প্রতিটি পেজ ছবি বানিয়ে বাংলা OCR দিয়ে নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব পড়ে ওয়েবসাইটে সেভ করবে। তখন নাম লিখলেই পূর্ণ বিবরণসহ ফলাফল আসবে।<br>
-          <small style="color:var(--text-muted)">প্রতি PDF-এ প্রায় ৩-৫ মিনিট লাগে (৩০০-৪০০ জন থাকে)। ব্যাকগ্রাউন্ডে চলবে — আপনি অন্য কাজ করতে পারবেন।</small>
+          <small style="color:var(--text-muted)">প্রতি PDF-এ প্রায় ৩-৫ মিনিট লাগে (৩০০-৪০০ জন থাকে)। ব্যাকগ্রাউন্ডে চলবে — আপনি অন্য কাজ করতে পারবেন। একবার হয়ে গেলে আবার হবে না।</small>
         </div>
 
-        <div class="form-group-row" style="margin-top:14px;">
-          <div class="form-field">
-            <label>কোন PDF পড়বে?</label>
-            <select id="ocr_pdf_select" style="padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; font-family: inherit;">
-              <option value="">-- লোড হচ্ছে... --</option>
-            </select>
-          </div>
+        <!-- OCR স্ট্যাটাস টেবিল: কোনটা হয়েছে, কোনটা বাকি — এক নজরে -->
+        <div id="ocrSummary" style="margin:14px 0 10px; padding:12px 14px; border-radius:10px; background:#f5f3ff; border:1.5px solid #ddd6fe; font-size:0.92rem; font-weight:800; color:#5b21b6;">
+          লোড হচ্ছে...
         </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <button type="button" class="btn btn-primary" id="btnOcrOne" style="flex:1; min-width:180px; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
-            🤖 এই PDF পড়ুন
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <button type="button" class="btn btn-primary" id="btnOcrAll" style="flex:1; min-width:200px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
+            ⚡ বাকি সব PDF পড়ুন
           </button>
-          <button type="button" class="btn btn-primary" id="btnOcrAll" style="flex:1; min-width:180px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
-            ⚡ সব PDF একে একে পড়ুন
-          </button>
+        </div>
+
+        <div style="overflow-x:auto; border:1.5px solid var(--border); border-radius:10px; max-height:340px; overflow-y:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead style="position:sticky; top:0; background:#f8fafc; z-index:1;">
+              <tr>
+                <th style="padding:8px 10px; text-align:left; border-bottom:2px solid var(--border);">PDF ফাইল</th>
+                <th style="padding:8px 10px; text-align:center; border-bottom:2px solid var(--border);">ভোটার</th>
+                <th style="padding:8px 10px; text-align:center; border-bottom:2px solid var(--border);">অবস্থা</th>
+                <th style="padding:8px 10px; text-align:center; border-bottom:2px solid var(--border);">কাজ</th>
+              </tr>
+            </thead>
+            <tbody id="ocrTableBody">
+              <tr><td colspan="4" style="padding:14px; text-align:center; color:var(--text-muted);">লোড হচ্ছে...</td></tr>
+            </tbody>
+          </table>
         </div>
         <div id="ocrStatus" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700; white-space: pre-wrap;"></div>
-        <div style="margin-top:8px; font-size:0.75rem; color:var(--text-muted);">
-          ℹ️ একবার যে PDF-এর OCR হয়ে গেছে (ভোটার মেলুক বা না মেলুক) সেটা আবার হবে না — duplicate থেকে সুরক্ষিত। ড্রপডাউনে <b>✓(N জন)</b> = সম্পন্ন, <b>✓(০)</b> = হয়েছে কিন্তু ভোটার মেলেনি (যেমন পর্চা/নমুনা PDF)।
-        </div>
       </div>
 
       <!-- Manage Section / Show lists -->
@@ -526,10 +533,10 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
   <!-- Load Scripts -->
-  <script src="js/data.js?v=3.9"></script>
-  <script src="js/data-uploads.js?v=3.9"></script>
-  <script src="js/firebase-config.js?v=3.9"></script>
-  <script src="js/admin.js?v=3.9"></script>
+  <script src="js/data.js?v=4.0"></script>
+  <script src="js/data-uploads.js?v=4.0"></script>
+  <script src="js/firebase-config.js?v=4.0"></script>
+  <script src="js/admin.js?v=4.0"></script>
 
 </body>
 </html>

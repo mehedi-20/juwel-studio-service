@@ -425,11 +425,77 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ocrPdfSelect) {
         ocrPdfSelect.innerHTML = '<option value="">-- PDF বেছে নিন --</option>' + pdfListCache.map(optionHtml).join('');
       }
+
+      // 📊 OCR স্ট্যাটাস টেবিল রেন্ডার — কোনটা হয়েছে, কোনটা বাকি
+      renderOcrTable();
     } catch (e) {
       console.warn('[Overrides] list error:', e);
       if (overrideSelect) overrideSelect.innerHTML = '<option value="">তালিকা লোড করা যায়নি (সার্ভার চালু আছে তো?)</option>';
     }
   }
+
+  function renderOcrTable() {
+    const tbody = document.getElementById('ocrTableBody');
+    const summary = document.getElementById('ocrSummary');
+    if (!tbody) return;
+
+    const done = pdfListCache.filter(f => f.voters !== null && f.voters !== undefined);
+    const pending = pdfListCache.filter(f => f.voters === null || f.voters === undefined);
+    const totalVoters = done.reduce((s, f) => s + (f.voters || 0), 0);
+
+    if (summary) {
+      summary.innerHTML = `✅ <b>${done.length}</b> টি PDF-এর OCR সম্পন্ন — মোট <b>${totalVoters}</b> জন ভোটার পড়া হয়েছে<br>⏳ বাকি: <b>${pending.length}</b> টি PDF`;
+    }
+
+    if (!pending.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:16px; text-align:center; color:var(--success); font-weight:700;">🎉 সব PDF-এর OCR হয়ে গেছে!</td></tr>';
+      return;
+    }
+
+    // ভোটার তালিকার PDF (com_) আগে দেখাই — ওগুলোতেই আসল নাম থাকে
+    const sortKey = (f) => (f.file_name.includes('com_') ? 0 : 1);
+    const rows = pdfListCache
+      .filter(f => f.voters === null || f.voters === undefined)
+      .sort((a, b) => sortKey(a) - sortKey(b) || a.file_name.localeCompare(b.file_name))
+      .map(f => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
+          <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">—</td>
+          <td style="padding:7px 10px; text-align:center;"><span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">⏳ বাকি</span></td>
+          <td style="padding:7px 10px; text-align:center;">
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#7c3aed 0%,#4c1d95 100%);" onclick="startOcrPdf('${f.pdf.replace(/'/g, "\\'")}')">🤖 পড়ুন</button>
+          </td>
+        </tr>`).join('');
+
+    // সম্পন্ন গুলো নিচে ধূসর করে
+    const doneRows = done.map(f => `
+      <tr style="border-bottom:1px solid #f1f5f9; opacity:0.65;">
+        <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
+        <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">${f.voters}</td>
+        <td style="padding:7px 10px; text-align:center;"><span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">✅ সম্পন্ন</span></td>
+        <td style="padding:7px 10px; text-align:center; font-size:0.72rem; color:var(--text-muted);">—</td>
+      </tr>`).join('');
+
+    tbody.innerHTML = rows + doneRows;
+  }
+
+  // টেবিলের "পড়ুন" বাটন — একটি PDF-এর OCR শুরু
+  window.startOcrPdf = async (pdf) => {
+    try {
+      const resp = await adminFetch('/api/ocr-pdf', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdf })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.duplicate) { showToast('⚠️ এই PDF আগেই হয়ে গেছে'); return; }
+      if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+      showToast('🤖 OCR শুরু হয়েছে: ' + pdf.split('/').pop());
+      setTimeout(loadPdfList, 3000);
+      pollOcrStatus();
+    } catch (e) {
+      showToast('ব্যর্থ: ' + e.message);
+    }
+  };
 
   if (btnSaveOverrides) {
     btnSaveOverrides.addEventListener('click', async () => {
