@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Premium Styles (We use standard style.css but add custom admin panel dashboard styles) -->
-  <link rel="stylesheet" href="css/style.css?v=4.0">
+  <link rel="stylesheet" href="css/style.css?v=4.1">
   <style>
     .admin-card {
       max-width: 800px;
@@ -165,6 +165,9 @@
       </div>
       <button class="btn-go btn-block" id="btnLogin">🔒 প্রবেশ করুন</button>
       <div id="loginError" class="login-error"></div>
+      <div style="margin-top:16px; text-align:center;">
+        <a href="index.html" style="color:var(--primary); font-weight:700; text-decoration:none; font-size:0.85rem;">🏠 মূল ওয়েবসাইটে ফিরুন</a>
+      </div>
     </div>
   </div>
 
@@ -173,7 +176,8 @@
     <!-- Top Nav -->
     <div class="admin-nav">
       <h2>🛠️ জুয়েল টেলিকম অ্যাডমিন ড্যাশবোর্ড</h2>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <a href="index.html" style="display:inline-flex; align-items:center; gap:5px; background:#0f766e; color:#fff; padding:8px 14px; border-radius:8px; text-decoration:none; font-weight:700; font-size:0.82rem;">🏠 মূল ওয়েবসাইটে ফিরুন</a>
         <span id="firebaseStatus" class="status-badge">ফায়ারবেস সংযোগ বিচ্ছিন্ন (অফলাইন মোড)</span>
         <button class="btn-logout" id="btnLogout">প্রস্থান (Logout)</button>
       </div>
@@ -533,10 +537,10 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
   <!-- Load Scripts -->
-  <script src="js/data.js?v=4.0"></script>
-  <script src="js/data-uploads.js?v=4.0"></script>
-  <script src="js/firebase-config.js?v=4.0"></script>
-  <script src="js/admin.js?v=4.0"></script>
+  <script src="js/data.js?v=4.1"></script>
+  <script src="js/data-uploads.js?v=4.1"></script>
+  <script src="js/firebase-config.js?v=4.1"></script>
+  <script src="js/admin.js?v=4.1"></script>
 
 </body>
 </html>
