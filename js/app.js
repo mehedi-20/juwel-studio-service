@@ -734,20 +734,14 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState.style.display = 'none';
     resultsGrid.innerHTML = '';
     if (matchedRecords.length > 0) renderPorchaResults(matchedRecords, q);
-    const voterResults = collectVoterMatches(archiveHits, archiveTokens);
-    if (voterResults.length > 0) {
-      // ভোটার কার্ড + শুধু-টেক্সট ফাইল (যেমন খতিয়ান বই/পর্চা) আর্কাইভে
-      renderVoterCards(voterResults, archiveTokens);
-      const textOnly = archiveHits.filter(e => !(Array.isArray(e.voters) && e.voters.length));
-      renderArchiveSection(textOnly, archiveTokens);
-    } else {
-      renderArchiveSection(archiveHits, archiveTokens);
-    }
+    // খতিয়ান ট্যাবে ভোটার/NID কার্ড দেখানো হয় না — শুধু খতিয়ান রেকর্ড +
+    // খতিয়ান বই/পর্চা PDF-এর টেক্সট ফলাফল (ভোটার তালিকার PDF এখানে বাদ)
+    const textOnly = archiveHits.filter(e => !(Array.isArray(e.voters) && e.voters.length));
+    renderArchiveSection(textOnly, archiveTokens);
 
     const parts = [];
     if (matchedRecords.length) parts.push(`<span>${matchedRecords.length}</span> টি খতিয়ান ডেটাবেজে পাওয়া গেছে`);
-    if (voterResults.length) parts.push(`<span>${voterResults.length}</span> জন ভোটার PDF তালিকায় পাওয়া গেছে`);
-    if (!voterResults.length && archiveHits.length) parts.push(`<span>${archiveHits.length}</span> টি PDF-এ শুধু টেক্সট মিলেছে`);
+    if (textOnly.length) parts.push(`<span>${textOnly.length}</span> টি খতিয়ান বই/পর্চা PDF-এ মিলেছে`);
     statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
 
