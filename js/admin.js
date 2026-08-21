@@ -651,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
      AI (Google Gemini) দিয়ে PDF পড়া — key সেভ/পরীক্ষা + কিউ + স্ট্যাটাস
      ========================================================================== */
   const aiApiKeyInput = document.getElementById('aiApiKey');
+  const aiProviderSelect = document.getElementById('aiProvider');
   const aiModelSelect = document.getElementById('aiModel');
   const btnAiSaveKey = document.getElementById('btnAiSaveKey');
   const btnAiTestKey = document.getElementById('btnAiTestKey');
@@ -659,19 +660,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const aiStatus = document.getElementById('aiStatus');
   let aiPollTimer = null;
 
+  // প্রোভাইডার অনুযায়ী মডেলের তালিকা
+  const AI_MODELS = {
+    groq: [
+      ['meta-llama/llama-4-scout-8b-17e-instruct', 'Llama-4 Scout (ছবি পড়ে — প্রধান)'],
+      ['meta-llama/llama-4-maverick-17b-128e-instruct', 'Llama-4 Maverick (শক্তিশালী, ছবি)']
+    ],
+    gemini: [
+      ['gemini-2.5-flash', 'Gemini 2.5 Flash (সবচেয়ে নিখুঁত)'],
+      ['gemini-2.5-flash-lite', '2.5 Flash-Lite (দ্রুত, বেশি কোটা)'],
+      ['gemini-2.0-flash', '2.0 Flash (বড় ফ্রি কোটা)']
+    ]
+  };
+  function fillAiModels(provider, selected) {
+    if (!aiModelSelect) return;
+    const list = AI_MODELS[provider] || AI_MODELS.groq;
+    aiModelSelect.innerHTML = list.map(([v, label]) => `<option value="${v}">${label}</option>`).join('');
+    if (selected && list.some(([v]) => v === selected)) aiModelSelect.value = selected;
+  }
+  if (aiProviderSelect) {
+    aiProviderSelect.addEventListener('change', () => fillAiModels(aiProviderSelect.value));
+  }
+
   async function loadAiConfig() {
     try {
       const resp = await adminFetch('/api/ai-config');
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
-      if (aiModelSelect && data.model) aiModelSelect.value = data.model;
+      const provider = data.provider || 'groq';
+      if (aiProviderSelect) aiProviderSelect.value = provider;
+      fillAiModels(provider, data.model);
       if (aiKeyStatus) {
+        const pname = provider === 'gemini' ? 'Gemini' : 'Groq';
         if (data.has_key) {
           aiKeyStatus.style.color = '#0e7490';
-          aiKeyStatus.textContent = `🔑 Key সেভ করা আছে: ${data.key_masked} (মডেল: ${data.model})`;
+          aiKeyStatus.textContent = `🔑 Key সেভ করা আছে: ${data.key_masked} (${pname}, ${data.model})`;
         } else {
           aiKeyStatus.style.color = '#b45309';
-          aiKeyStatus.textContent = '⚠️ কোনো API key সেভ করা নেই — aistudio.google.com থেকে ফ্রি key নিয়ে নিচে পেস্ট করুন';
+          aiKeyStatus.textContent = '⚠️ কোনো API key সেভ করা নেই — console.groq.com/keys থেকে ফ্রি key নিয়ে নিচে পেস্ট করুন';
         }
       }
     } catch (e) { /* সার্ভার বন্ধ থাকলে চুপ থাকি */ }
@@ -680,7 +706,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAiSaveKey) {
     btnAiSaveKey.addEventListener('click', async () => {
       try {
-        const body = { model: aiModelSelect ? aiModelSelect.value : undefined };
+        const body = {
+          provider: aiProviderSelect ? aiProviderSelect.value : 'groq',
+          model: aiModelSelect ? aiModelSelect.value : undefined
+        };
         if (aiApiKeyInput && aiApiKeyInput.value.trim()) body.api_key = aiApiKeyInput.value.trim();
         const resp = await adminFetch('/api/ai-config', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -696,6 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : '⚠️ key এখনো নেই — ঘরে key পেস্ট করে আবার সেভ করুন';
         }
         showToast('AI সেটিং সেভ হয়েছে ✓');
+        loadAiConfig();
       } catch (e) {
         if (aiKeyStatus) { aiKeyStatus.style.color = 'var(--accent)'; aiKeyStatus.textContent = 'সেভ ব্যর্থ: ' + e.message; }
       }

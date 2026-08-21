@@ -466,19 +466,22 @@
 
         <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
 
-        <h4 style="font-size:1rem; color: #0891b2; margin-bottom: 10px;">🤖 AI দিয়ে পড়ুন (Google Gemini) — নতুন সিস্টেম, প্রায় নিখুঁত!</h4>
+        <h4 style="font-size:1rem; color: #0891b2; margin-bottom: 10px;">🤖 AI দিয়ে পড়ুন (Groq / Gemini) — নতুন সিস্টেম, প্রায় নিখুঁত!</h4>
 
         <div class="bulk-help" style="border-left-color: #0891b2;">
-          <b>OCR-এর বদলে এখন Google Gemini AI নিজেই পুরো PDF পড়ে</b> নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব সাজিয়ে সেভ করে দেয়। বাংলা লেখা পড়তে AI অনেক বেশি নিখুঁত, তাই ভুল তথ্য প্রায় থাকে না। প্রতি PDF-এ মাত্র ~১-২ মিনিট লাগে।<br>
-          <small style="color:var(--text-muted)">১. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:#0891b2;">aistudio.google.com</a>-এ গিয়ে <b>ফ্রি</b> API key নিন → ২. নিচের ঘরে key পেস্ট করে <b>সেভ</b> করুন → ৩. নিচের বাটনে চেপে সব PDF পড়িয়ে দিন। ফ্রি কোটায় দিনে ২৫০-১০০০ বার পড়া যায় (মডেলভেদে) — একবার পড়লেই আর লাগে না।</small>
+          <b>OCR-এর বদলে এখন AI নিজেই পুরো PDF পড়ে</b> নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব সাজিয়ে সেভ করে দেয়। বাংলা লেখা পড়তে AI অনেক বেশি নিখুঁত, তাই ভুল তথ্য প্রায় থাকে না। <b>আর সাইটে কিছু খুঁজে না পেলে "🤖 AI দিয়ে খুঁজুন" বাটনে</b> AI সরাসরি PDF-গুলো পড়ে ব্যক্তি খুঁজে দেয়।<br>
+          <small style="color:var(--text-muted)">১. <a href="https://console.groq.com/keys" target="_blank" rel="noopener" style="color:#0891b2;">console.groq.com/keys</a> থেকে <b>ফ্রি</b> Groq API key নিন → ২. নিচের ঘরে key পেস্ট করে <b>সেভ</b> করুন → ৩. নিচের বাটনে চেপে সব PDF পড়িয়ে দিন। একবার পড়লেই সেভ থাকে — সার্চ instant।</small>
         </div>
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px;">
-          <input id="aiApiKey" type="password" placeholder="Gemini API key পেস্ট করুন (AIza... দিয়ে শুরু)" autocomplete="off" style="flex:1; min-width:220px; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
+          <input id="aiApiKey" type="password" placeholder="API key পেস্ট করুন (Groq: gsk... / Gemini: AIza...)" autocomplete="off" style="flex:1; min-width:220px; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
+          <select id="aiProvider" style="padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
+            <option value="groq">⚡ Groq (ফ্রি key, দ্রুত)</option>
+            <option value="gemini">🌐 Google Gemini</option>
+          </select>
           <select id="aiModel" style="padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash (সবচেয়ে নিখুঁত)</option>
-            <option value="gemini-2.5-flash-lite">2.5 Flash-Lite (দ্রুত, বেশি কোটা)</option>
-            <option value="gemini-2.0-flash">2.0 Flash (বড় ফ্রি কোটা)</option>
+            <option value="meta-llama/llama-4-scout-8b-17e-instruct">Llama-4 Scout (ছবি পড়ে — প্রধান)</option>
+            <option value="meta-llama/llama-4-maverick-17b-128e-instruct">Llama-4 Maverick (শক্তিশালী, ছবি)</option>
           </select>
           <button type="button" class="btn btn-primary" id="btnAiSaveKey" style="background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);">💾 সেভ</button>
           <button type="button" class="btn btn-secondary" id="btnAiTestKey">✅ পরীক্ষা</button>

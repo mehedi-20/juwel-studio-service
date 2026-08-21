@@ -609,6 +609,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="empty-icon">😕</div>
         <div class="empty-title">কোনো তথ্য পাওয়া যায়নি</div>
         <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে বানান যাচাই করুন অথবা অতিরিক্ত ফিল্টারগুলো কমিয়ে পুনরায় চেষ্টা করুন।</p>
+        <div style="margin-top:16px; padding:14px; border:1.5px dashed var(--border); border-radius:12px; background:var(--bg-secondary, #f8fafc);">
+          <b style="font-size:0.9rem;">🤖 AI দিয়ে PDF-এ খুঁজে দেখবেন?</b>
+          <p style="font-size:0.82rem; margin:6px 0 10px; color:var(--text-muted)">ডেটাবেজে কিছু মেলেনি — কিন্তু আপনার আপলোড করা PDF-গুলো AI নিজেই পড়ে খুঁজে দিতে পারে (কয়েক মিনিট লাগতে পারে)।</p>
+          <button type="button" class="btn btn-primary" onclick="aiFindStart()" style="height:42px; padding:0 22px; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);">🤖 AI দিয়ে খুঁজুন</button>
+          <div id="aiFindStatus" style="margin-top:12px; font-size:0.85rem; font-weight:700; white-space:pre-wrap; text-align:left;"></div>
+        </div>
       `;
       return;
     }
@@ -727,6 +733,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="empty-icon">😕</div>
         <div class="empty-title">কোনো খতিয়ান বা পর্চা পাওয়া যায়নি</div>
         <p style="font-size:0.88rem;margin-top:4px">অনুগ্রহ করে খতিয়ান নম্বর বা মালিকের নাম পুনরায় যাচাই করুন।</p>
+        <div style="margin-top:16px; padding:14px; border:1.5px dashed var(--border); border-radius:12px; background:var(--bg-secondary, #f8fafc);">
+          <b style="font-size:0.9rem;">🤖 AI দিয়ে PDF-এ খুঁজে দেখবেন?</b>
+          <p style="font-size:0.82rem; margin:6px 0 10px; color:var(--text-muted)">আপনার আপলোড করা খতিয়ান/পর্চা PDF-গুলো AI নিজেই পড়ে মালিকের নাম/খতিয়ান নং খুঁজে দিতে পারে।</p>
+          <button type="button" class="btn btn-primary" onclick="aiFindStart()" style="height:42px; padding:0 22px; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);">🤖 AI দিয়ে খুঁজুন</button>
+          <div id="aiFindStatus" style="margin-top:12px; font-size:0.85rem; font-weight:700; white-space:pre-wrap; text-align:left;"></div>
+        </div>
       `;
       return;
     }
@@ -744,6 +756,129 @@ document.addEventListener('DOMContentLoaded', () => {
     if (textOnly.length) parts.push(`<span>${textOnly.length}</span> টি খতিয়ান বই/পর্চা PDF-এ মিলেছে`);
     statusContainer.innerHTML = parts.join(' &nbsp;+&nbsp; ');
   }
+
+  /* ==========================================================================
+     🤖 সার্চ-টাইম AI খোঁজা — সার্ভারের /api/ai-find PDF-গুলো পড়ে ব্যক্তি খোঁজে
+     ========================================================================== */
+  let aiFindTimer = null;
+
+  function aiFindQueryText() {
+    const vals = currentTab === 'nid'
+      ? [fields.name && fields.name.value, fields.father && fields.father.value,
+          fields.mother && fields.mother.value, fields.nid && fields.nid.value,
+          fields.village && fields.village.value, fields.union && fields.union.value,
+          fields.dob && fields.dob.value]
+      : [fields.owner && fields.owner.value, fields.owner_father && fields.owner_father.value,
+          fields.khatian && fields.khatian.value, fields.dag && fields.dag.value,
+          fields.mouza && fields.mouza.value];
+    return vals.map((v) => (v || '').trim()).filter(Boolean).join(' ');
+  }
+
+  function aiFindBox() { return document.getElementById('aiFindStatus'); }
+
+  function aiFindSetStatus(text, showCancel) {
+    const box = aiFindBox();
+    if (!box) return;
+    box.innerHTML = text + (showCancel
+      ? ' &nbsp;<a href="#" onclick="aiFindCancel(); return false;" style="color:#b91c1c;">বন্ধ করুন</a>' : '');
+  }
+
+  function aiFindProgressHtml(st) {
+    const p = st.progress || {};
+    const pct = p.total ? Math.round((p.scanned / p.total) * 100) : 0;
+    const cur = p.currentPdf ? p.currentPdf.split('/').pop() : 'প্রস্তুত হচ্ছে...';
+    return `⏳ AI পড়ছে — ${p.scanned}/${p.total} পেজ (${pct}%)<br><span style="font-weight:400;color:var(--text-muted);font-size:0.78rem;">📄 ${esc(cur)}</span>`;
+  }
+
+  function renderAiFoundCards(found) {
+    emptyState.style.display = 'none';
+    hideArchiveSection();
+    statusContainer.innerHTML = `<span>${found.length}</span> জন ব্যক্তি AI পড়ে পাওয়া গেছে 🤖`;
+    resultsGrid.innerHTML = found.map((e) => `
+      <div class="premium-card">
+        <div class="card-header-banner">
+          <h3 class="card-title-main">${esc(e.name || '—')}</h3>
+          <div class="card-badge">🤖 AI-পড়া</div>
+        </div>
+        <div class="card-body">
+          <div class="card-subtitle">
+            <span>ভোটার নং: ${esc(e.voter_no || '—')}</span>
+            <span>ক্রমিক: #${esc(e.serial || '—')}</span>
+          </div>
+          <div style="display:grid; gap:6px; font-size:0.85rem; margin:10px 0;">
+            ${e.father ? `<div><b>পিতা:</b> ${esc(e.father)}</div>` : ''}
+            ${e.mother ? `<div><b>মাতা:</b> ${esc(e.mother)}</div>` : ''}
+            ${e.dob ? `<div><b>জন্ম তারিখ:</b> ${esc(e.dob)}</div>` : ''}
+            ${e.occupation ? `<div><b>পেশা:</b> ${esc(e.occupation)}</div>` : ''}
+            ${e.address ? `<div><b>ঠিকানা:</b> ${esc(e.address)}</div>` : ''}
+          </div>
+          ${e.pdf ? `<a href="${esc(e.pdf)}" target="_blank" rel="noopener" style="font-size:0.8rem; font-weight:700; color:#0891b2;">📄 মূল PDF দেখুন (পেজ ${esc(e.page || '?')})</a>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function aiFindPoll() {
+    try {
+      const resp = await fetch('/api/ai-find-status');
+      const st = await resp.json().catch(() => ({}));
+      if (st.running) {
+        aiFindSetStatus(aiFindProgressHtml(st), true);
+        clearTimeout(aiFindTimer);
+        aiFindTimer = setTimeout(aiFindPoll, 2500);
+        return;
+      }
+      // শেষ — ফলাফল দেখাই
+      clearTimeout(aiFindTimer);
+      if (st.error) {
+        aiFindSetStatus('✗ ' + st.error, false);
+        return;
+      }
+      if (st.canceled) {
+        aiFindSetStatus('🛑 খোঁজা বন্ধ করা হয়েছে', false);
+        return;
+      }
+      const found = st.found || [];
+      if (found.length > 0) {
+        renderAiFoundCards(found);
+      } else {
+        aiFindSetStatus('😔 AI সব PDF পড়েও কাউকে খুঁজে পায়নি — বানান বদলে আবার চেষ্টা করুন', false);
+      }
+    } catch (e) {
+      clearTimeout(aiFindTimer);
+      aiFindSetStatus('সংযোগ সমস্যা — আবার চেষ্টা করুন', false);
+    }
+  }
+
+  window.aiFindStart = async () => {
+    const q = aiFindQueryText();
+    if (q.trim().length < 2) {
+      aiFindSetStatus('⚠️ আগে অন্তত একটি ঘরে কিছু লিখুন (নাম / ভোটার নং / NID)', false);
+      return;
+    }
+    try {
+      aiFindSetStatus('🚀 AI খোঁজা শুরু করছি...', true);
+      const resp = await fetch('/api/ai-find', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        // আগের খোঁজা চলছে — সেটার প্রগ্রেসই দেখাই
+        if (resp.status === 409) { aiFindPoll(); return; }
+        throw new Error(data.error || ('HTTP ' + resp.status));
+      }
+      clearTimeout(aiFindTimer);
+      aiFindPoll();
+    } catch (e) {
+      aiFindSetStatus('✗ শুরু করা যায়নি: ' + e.message, false);
+    }
+  };
+
+  window.aiFindCancel = async () => {
+    try { await fetch('/api/ai-find-cancel', { method: 'POST' }); } catch (e) {}
+  };
 
   // Render NID Result Cards
   function renderNidResults(records, q) {

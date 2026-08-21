@@ -1,4 +1,5 @@
 node_modules/
 .ocr-status.json
 .ai-status.json
+.ai-find-state.json
 ai-config.json

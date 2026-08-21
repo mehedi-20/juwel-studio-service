@@ -192,6 +192,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // সার্চ-টাইম AI খোঁজা (পাবলিক — মূল সাইটের "AI দিয়ে খুঁজুন" বাটন)
+  if (req.method === 'POST' && pathname === '/api/ai-find') {
+    handleAiFind(req, res);
+    return;
+  }
+  if (req.method === 'GET' && pathname === '/api/ai-find-status') {
+    handleAiFindStatus(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-find-cancel') {
+    handleAiFindCancel(req, res);
+    return;
+  }
+
   // Resolve the requested path strictly inside the project root
   // (normalize neutralizes ../ traversal attempts)
   const filePath = path.normalize(path.join(ROOT, pathname));
@@ -550,11 +564,12 @@ function handleAiConfigGet(req, res) {
   const cfg = readAiConfig();
   sendJson(res, 200, {
     ok: true,
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
     has_key: Boolean(cfg.api_key),
     key_masked: maskKey(cfg.api_key),
-    model: cfg.model || 'gemini-2.5-flash',
+    model: cfg.model || (cfg.provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct'),
     chunk_pages: cfg.chunk_pages || 25,
-    request_interval_ms: cfg.request_interval_ms !== undefined ? cfg.request_interval_ms : 7000
+    request_interval_ms: cfg.request_interval_ms !== undefined ? cfg.request_interval_ms : 2500
   });
 }
 
@@ -565,52 +580,78 @@ function handleAiConfigPost(req, res) {
       const cfg = readAiConfig();
       if (body.clear_key) delete cfg.api_key;
       if (typeof body.api_key === 'string' && body.api_key.trim()) cfg.api_key = body.api_key.trim();
+      if (body.provider === 'groq' || body.provider === 'gemini') cfg.provider = body.provider;
+      // প্রোভাইডার বদলালে মডেলও সেই প্রোভাইডারের ডিফল্টে যায় (নতুন মডেল না দিলে)
+      if (cfg.provider === 'gemini' && typeof cfg.model === 'string' && !cfg.model.startsWith('gemini')) cfg.model = 'gemini-2.5-flash';
+      if (cfg.provider === 'groq' && typeof cfg.model === 'string' && cfg.model.startsWith('gemini')) cfg.model = 'meta-llama/llama-4-scout-8b-17e-instruct';
       if (typeof body.model === 'string' && body.model.trim()) cfg.model = body.model.trim();
       if (Number.isFinite(body.chunk_pages)) cfg.chunk_pages = Math.min(100, Math.max(5, parseInt(body.chunk_pages, 10)));
       if (Number.isFinite(body.request_interval_ms)) cfg.request_interval_ms = Math.min(600000, Math.max(0, parseInt(body.request_interval_ms, 10)));
       writeAiConfig(cfg);
-      console.log('[AI] কনফিগ সেভ হয়েছে (key আছে: ' + Boolean(cfg.api_key) + ', মডেল: ' + (cfg.model || 'gemini-2.5-flash') + ')');
-      sendJson(res, 200, { ok: true, has_key: Boolean(cfg.api_key), key_masked: maskKey(cfg.api_key) });
+      console.log('[AI] কনফিগ সেভ হয়েছে (' + (cfg.provider || 'groq') + ', key আছে: ' + Boolean(cfg.api_key) + ', মডেল: ' + (cfg.model || '?') + ')');
+      sendJson(res, 200, { ok: true, provider: cfg.provider === 'gemini' ? 'gemini' : 'groq', has_key: Boolean(cfg.api_key), key_masked: maskKey(cfg.api_key) });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
     }
   });
 }
 
-// key দিয়ে ছোট একটা আসল API কল — key/নেটওয়ার্ক ঠিক কি না যাচাই
+// key দিয়ে ছোট একটা আসল API কল — key/মডেল/নেটওয়ার্ক ঠিক কি না যাচাই
 async function handleAiTest(req, res) {
   const cfg = readAiConfig();
   if (!cfg.api_key) {
-    sendJson(res, 400, { ok: false, error: 'আগে Gemini API key সেভ করুন' });
+    sendJson(res, 400, { ok: false, error: 'আগে API key সেভ করুন' });
     return;
   }
-  const model = cfg.model || 'gemini-2.5-flash';
+  const provider = cfg.provider === 'gemini' ? 'gemini' : 'groq';
+  const model = cfg.model || (provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct');
   try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.api_key },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'ঠিক আছে কি? এক শব্দে উত্তর দিন।' }] }],
-        generationConfig: {
-          maxOutputTokens: 30,
-          ...(String(model).includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
-        }
-      }),
-      signal: AbortSignal.timeout(30000)
-    });
-    if (resp.ok) {
-      sendJson(res, 200, { ok: true, message: '✓ Key কাজ করছে (' + model + ')' });
-      return;
+    if (provider === 'gemini') {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.api_key },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'ঠিক আছে কি? এক শব্দে উত্তর দিন।' }] }],
+          generationConfig: {
+            maxOutputTokens: 30,
+            ...(String(model).includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+          }
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
+      if (resp.ok) { sendJson(res, 200, { ok: true, message: '✓ Key কাজ করছে (Gemini ' + model + ')' }); return; }
+      const data = await resp.json().catch(() => ({}));
+      const msg = data?.error?.message || ('HTTP ' + resp.status);
+      let friendly = msg;
+      if (resp.status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg)) friendly = 'API key ভুল বা অবৈধ — আবার কপি করে দিন';
+      else if (resp.status === 429) friendly = 'রেট/দৈনিক কোটা শেষ — কিছুক্ষণ পর আবার পরীক্ষা করুন';
+      else if (resp.status === 404) friendly = 'মডেলের নাম ভুল: ' + model;
+      sendJson(res, resp.status === 404 ? 404 : 400, { ok: false, error: friendly });
+    } else {
+      // Groq: মডেল-তালিকা আনা — key যাচাই + মডেল আছে কি না দুটোই বোঝা যায়
+      const resp = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': 'Bearer ' + cfg.api_key },
+        signal: AbortSignal.timeout(30000)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        const ids = (data.data || []).map((m) => m.id);
+        const hasModel = ids.includes(model);
+        sendJson(res, 200, {
+          ok: true,
+          message: hasModel
+            ? '✓ Key কাজ করছে (Groq, ' + ids.length + 'টি মডেল পাওয়া গেছে) — মডেল ঠিক আছে: ' + model
+            : '✓ Key কাজ করছে, কিন্তু মডেল "' + model + '" তালিকায় নেই — অন্য মডেল বেছে নিন'
+        });
+        return;
+      }
+      let friendly = data?.error?.message || ('HTTP ' + resp.status);
+      if (resp.status === 401) friendly = 'Groq API key ভুল বা অবৈধ — console.groq.com/keys থেকে আবার কপি করুন';
+      else if (resp.status === 429) friendly = 'রেট লিমিট — কিছুক্ষণ পর আবার পরীক্ষা করুন';
+      sendJson(res, 400, { ok: false, error: friendly });
     }
-    const data = await resp.json().catch(() => ({}));
-    const msg = data?.error?.message || ('HTTP ' + resp.status);
-    let friendly = msg;
-    if (resp.status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg)) friendly = 'API key ভুল বা অবৈধ — আবার কপি করে দিন';
-    else if (resp.status === 429) friendly = 'রেট/দৈনিক কোটা শেষ — কিছুক্ষণ পর আবার পরীক্ষা করুন';
-    else if (resp.status === 404) friendly = 'মডেলের নাম ভুল: ' + model;
-    sendJson(res, resp.status === 404 ? 404 : 400, { ok: false, error: friendly });
   } catch (e) {
-    sendJson(res, 502, { ok: false, error: 'Google-এর সাথে যোগাযোগ হয়নি (ইন্টারনেট সংযোগ?) — ' + (e.message || e) });
+    sendJson(res, 502, { ok: false, error: 'AI সার্ভারের সাথে যোগাযোগ হয়নি (ইন্টারনেট সংযোগ?) — ' + (e.message || e) });
   }
 }
 
@@ -640,7 +681,7 @@ function runNextAi() {
 
   const child = spawn(process.execPath, ['tools/ai-extract-voters.mjs', pdf, '--save'], {
     cwd: ROOT,
-    env: { ...process.env, GEMINI_API_KEY: cfg.api_key || '', AI_MODEL: cfg.model || '' },
+    env: { ...process.env, AI_PROVIDER: cfg.provider || 'groq', AI_API_KEY: cfg.api_key || '', AI_MODEL: cfg.model || '' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   child.stdout.on('data', (d) => {
@@ -738,8 +779,109 @@ function handleAiStatus(req, res) {
     processed: { pdfs: processedPdfs, voters: processedVoters },
     has_key: Boolean(cfg.api_key),
     key_masked: maskKey(cfg.api_key),
-    model: cfg.model || 'gemini-2.5-flash'
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
+    model: cfg.model || (cfg.provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct')
   });
+}
+
+/* ==========================================================================
+   সার্চ-টাইম AI খোঁজা — "PDF গুলো পড়ে ব্যক্তি খুঁজে দাও"
+   ==========================================================================
+   POST /api/ai-find         { query } — পুরো পাবলিক (সাইটের ইউজাররা চালায়)
+   GET  /api/ai-find-status  — লাইভ প্রগ্রেস + পাওয়া রেকর্ড
+   POST /api/ai-find-cancel  — চলমান খোঁজা বন্ধ
+   আসল কাজ করে tools/ai-find-person.mjs (চাইল্ড প্রসেস);
+   প্রগ্রেস .ai-find-state.json ফাইলে লাইভ লেখে।
+   ========================================================================== */
+
+const AI_FIND_STATE_FILE = path.join(ROOT, '.ai-find-state.json');
+const findJob = { running: false, child: null, query: '', startedAt: 0, log: [] };
+
+function readFindState() {
+  try { return JSON.parse(fs.readFileSync(AI_FIND_STATE_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function writeFindState(patch) {
+  try {
+    fs.writeFileSync(AI_FIND_STATE_FILE, JSON.stringify({ ...readFindState(), ...patch }));
+  } catch (e) {}
+}
+
+function handleAiFind(req, res) {
+  readBody(req, (raw) => {
+    try {
+      const { query } = JSON.parse(raw || '{}');
+      const q = String(query || '').trim();
+      if (q.length < 2) {
+        return sendJson(res, 400, { ok: false, error: 'অন্তত ২ অক্ষরের কিছু লিখুন' });
+      }
+      if (findJob.running) {
+        return sendJson(res, 409, { ok: false, error: 'আগের AI-খোঁজা এখনো চলছে — একটু অপেক্ষা করুন বা বন্ধ করুন' });
+      }
+      const cfg = readAiConfig();
+      if (!cfg.api_key) {
+        return sendJson(res, 400, { ok: false, error: 'AI সেটআপ নেই — অ্যাডমিন প্যানেলে API key সেভ করুন' });
+      }
+      findJob.running = true;
+      findJob.query = q;
+      findJob.startedAt = Date.now();
+      findJob.log = [];
+      writeFindState({ query: q, running: true, done: false, canceled: false, error: null, found: [], scanned: 0, startedAt: Date.now(), cancel: false });
+
+      const child = spawn(process.execPath, ['tools/ai-find-person.mjs', q], {
+        cwd: ROOT,
+        env: { ...process.env, AI_PROVIDER: cfg.provider || 'groq', AI_API_KEY: cfg.api_key || '', AI_MODEL: cfg.model || '' },
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      findJob.child = child;
+      const pushLog = (d) => {
+        findJob.log = [...findJob.log, ...String(d).split('\n').filter(Boolean)].slice(-30);
+      };
+      child.stdout.on('data', pushLog);
+      child.stderr.on('data', pushLog);
+      child.on('exit', (code) => {
+        findJob.running = false;
+        findJob.child = null;
+        writeFindState({ running: false, done: true });
+        console.log(`[AI-Find] শেষ (${code}): "${q}"`);
+      });
+      console.log(`[AI-Find] শুরু: "${q}"`);
+      sendJson(res, 200, { ok: true, started: true });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+function handleAiFindStatus(req, res) {
+  const st = readFindState();
+  const cfg = readAiConfig();
+  sendJson(res, 200, {
+    ok: true,
+    running: findJob.running,
+    query: st.query || findJob.query || '',
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
+    has_key: Boolean(cfg.api_key),
+    progress: {
+      scanned: st.scanned || 0,
+      total: st.total || 0,
+      currentPdf: st.currentPdf || null
+    },
+    found: st.found || [],
+    done: st.done || false,
+    canceled: Boolean(st.canceled),
+    error: st.error || null,
+    log: findJob.log.slice(-6)
+  });
+}
+
+function handleAiFindCancel(req, res) {
+  if (findJob.running && findJob.child) {
+    writeFindState({ cancel: true });
+    findJob.child.kill('SIGTERM');
+    sendJson(res, 200, { ok: true, canceled: true });
+  } else {
+    sendJson(res, 200, { ok: true, canceled: false, message: 'কোনো খোঁজা চলছে না' });
+  }
 }
 
 function handlePdfNames(req, res) {
