@@ -146,6 +146,66 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // AI (Google Gemini) দিয়ে PDF পড়া — কনফিগ, key পরীক্ষা, কিউ
+  if (req.method === 'GET' && pathname === '/api/ai-config') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
+    handleAiConfigGet(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-config') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
+    handleAiConfigPost(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-test') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
+    handleAiTest(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-extract') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
+    handleAiExtract(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-queue') {
+    if (!isAdminAuthed(req)) {
+      sendJson(res, 401, { ok: false, error: 'অনুমতি নেই — অ্যাডমিন প্যানেল থেকে লগইন করুন' });
+      return;
+    }
+    handleAiQueue(req, res);
+    return;
+  }
+  if (req.method === 'GET' && pathname === '/api/ai-status') {
+    handleAiStatus(req, res);
+    return;
+  }
+
+  // সার্চ-টাইম AI খোঁজা (পাবলিক — মূল সাইটের "AI দিয়ে খুঁজুন" বাটন)
+  if (req.method === 'POST' && pathname === '/api/ai-find') {
+    handleAiFind(req, res);
+    return;
+  }
+  if (req.method === 'GET' && pathname === '/api/ai-find-status') {
+    handleAiFindStatus(req, res);
+    return;
+  }
+  if (req.method === 'POST' && pathname === '/api/ai-find-cancel') {
+    handleAiFindCancel(req, res);
+    return;
+  }
+
   // Resolve the requested path strictly inside the project root
   // (normalize neutralizes ../ traversal attempts)
   const filePath = path.normalize(path.join(ROOT, pathname));
@@ -349,6 +409,11 @@ function runNextOcr() {
     saveOcrStatus();
     return;
   }
+  // AI পাইপলাইন চলাকালীন একই ডেটা-ফাইলে লিখলে কনফ্লিক্ট হবে — অপেক্ষা করি
+  if (aiState.running) {
+    setTimeout(runNextOcr, 10000);
+    return;
+  }
   const pdf = ocrQueue.shift();
   ocrState.running = true;
   ocrState.current = pdf;
@@ -444,6 +509,379 @@ function handleOcrStatus(req, res) {
     if (Array.isArray(v)) processedVoters += v.length;
   }
   sendJson(res, 200, { ok: true, state: ocrState, processed: { pdfs: processedPdfs, voters: processedVoters } });
+}
+
+/* ==========================================================================
+   AI (Google Gemini) এক্সট্রাকশন সিস্টেম — OCR-এর বদলে প্রধান পদ্ধতি
+   ==========================================================================
+   - কনফিগ: ai-config.json → { api_key, model, chunk_pages, request_interval_ms }
+   - key সেভ/পরীক্ষা: /api/ai-config, /api/ai-test
+   - কিউ: /api/ai-extract (একটি PDF), /api/ai-queue (বাকি সব), /api/ai-status
+   - আসল কাজ করে tools/ai-extract-voters.mjs (চাইল্ড প্রসেস)
+   ========================================================================== */
+
+const AI_CONFIG_FILE = path.join(ROOT, 'ai-config.json');
+const AI_STATUS_FILE = path.join(ROOT, '.ai-status.json');
+
+let aiQueue = [];
+let aiState = { running: false, current: null, log: [], done: 0, total: 0, lastResult: null };
+
+function saveAiStatus() {
+  try {
+    fs.writeFileSync(AI_STATUS_FILE, JSON.stringify({ ...aiState, pendingQueue: aiQueue }));
+  } catch (e) {}
+}
+function loadAiStatus() {
+  try {
+    const s = JSON.parse(fs.readFileSync(AI_STATUS_FILE, 'utf8'));
+    aiQueue = Array.isArray(s.pendingQueue) ? s.pendingQueue : [];
+    aiState = {
+      ...aiState,
+      log: Array.isArray(s.log) ? s.log : [],
+      done: s.done || 0,
+      total: s.total || 0,
+      lastResult: s.lastResult || null,
+      running: false,  // সার্ভার রিস্টার্টে পুরনো চাইল্ড মরে গেছে — নতুন করে শুরু করা যাবে
+      current: null
+    };
+  } catch (e) { /* প্রথমবার */ }
+}
+loadAiStatus();
+
+function readAiConfig() {
+  try { return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function writeAiConfig(cfg) {
+  fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(cfg, null, 2) + '\n');
+}
+const maskKey = (k) => {
+  k = String(k || '');
+  if (!k) return '';
+  return k.length <= 8 ? '••••••' : k.slice(0, 4) + '••••••' + k.slice(-4);
+};
+
+function handleAiConfigGet(req, res) {
+  const cfg = readAiConfig();
+  sendJson(res, 200, {
+    ok: true,
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
+    has_key: Boolean(cfg.api_key),
+    key_masked: maskKey(cfg.api_key),
+    model: cfg.model || (cfg.provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct'),
+    chunk_pages: cfg.chunk_pages || 25,
+    request_interval_ms: cfg.request_interval_ms !== undefined ? cfg.request_interval_ms : 2500
+  });
+}
+
+function handleAiConfigPost(req, res) {
+  readBody(req, (raw) => {
+    try {
+      const body = JSON.parse(raw || '{}');
+      const cfg = readAiConfig();
+      if (body.clear_key) delete cfg.api_key;
+      if (typeof body.api_key === 'string' && body.api_key.trim()) cfg.api_key = body.api_key.trim();
+      if (body.provider === 'groq' || body.provider === 'gemini') cfg.provider = body.provider;
+      // প্রোভাইডার বদলালে মডেলও সেই প্রোভাইডারের ডিফল্টে যায় (নতুন মডেল না দিলে)
+      if (cfg.provider === 'gemini' && typeof cfg.model === 'string' && !cfg.model.startsWith('gemini')) cfg.model = 'gemini-2.5-flash';
+      if (cfg.provider === 'groq' && typeof cfg.model === 'string' && cfg.model.startsWith('gemini')) cfg.model = 'meta-llama/llama-4-scout-8b-17e-instruct';
+      if (typeof body.model === 'string' && body.model.trim()) cfg.model = body.model.trim();
+      if (Number.isFinite(body.chunk_pages)) cfg.chunk_pages = Math.min(100, Math.max(5, parseInt(body.chunk_pages, 10)));
+      if (Number.isFinite(body.request_interval_ms)) cfg.request_interval_ms = Math.min(600000, Math.max(0, parseInt(body.request_interval_ms, 10)));
+      writeAiConfig(cfg);
+      console.log('[AI] কনফিগ সেভ হয়েছে (' + (cfg.provider || 'groq') + ', key আছে: ' + Boolean(cfg.api_key) + ', মডেল: ' + (cfg.model || '?') + ')');
+      sendJson(res, 200, { ok: true, provider: cfg.provider === 'gemini' ? 'gemini' : 'groq', has_key: Boolean(cfg.api_key), key_masked: maskKey(cfg.api_key) });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+// key দিয়ে ছোট একটা আসল API কল — key/মডেল/নেটওয়ার্ক ঠিক কি না যাচাই
+async function handleAiTest(req, res) {
+  const cfg = readAiConfig();
+  if (!cfg.api_key) {
+    sendJson(res, 400, { ok: false, error: 'আগে API key সেভ করুন' });
+    return;
+  }
+  const provider = cfg.provider === 'gemini' ? 'gemini' : 'groq';
+  const model = cfg.model || (provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct');
+  try {
+    if (provider === 'gemini') {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.api_key },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'ঠিক আছে কি? এক শব্দে উত্তর দিন।' }] }],
+          generationConfig: {
+            maxOutputTokens: 30,
+            ...(String(model).includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+          }
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
+      if (resp.ok) { sendJson(res, 200, { ok: true, message: '✓ Key কাজ করছে (Gemini ' + model + ')' }); return; }
+      const data = await resp.json().catch(() => ({}));
+      const msg = data?.error?.message || ('HTTP ' + resp.status);
+      let friendly = msg;
+      if (resp.status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg)) friendly = 'API key ভুল বা অবৈধ — আবার কপি করে দিন';
+      else if (resp.status === 429) friendly = 'রেট/দৈনিক কোটা শেষ — কিছুক্ষণ পর আবার পরীক্ষা করুন';
+      else if (resp.status === 404) friendly = 'মডেলের নাম ভুল: ' + model;
+      sendJson(res, resp.status === 404 ? 404 : 400, { ok: false, error: friendly });
+    } else {
+      // Groq: মডেল-তালিকা আনা — key যাচাই + মডেল আছে কি না দুটোই বোঝা যায়
+      const resp = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': 'Bearer ' + cfg.api_key },
+        signal: AbortSignal.timeout(30000)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        const ids = (data.data || []).map((m) => m.id);
+        const hasModel = ids.includes(model);
+        sendJson(res, 200, {
+          ok: true,
+          message: hasModel
+            ? '✓ Key কাজ করছে (Groq, ' + ids.length + 'টি মডেল পাওয়া গেছে) — মডেল ঠিক আছে: ' + model
+            : '✓ Key কাজ করছে, কিন্তু মডেল "' + model + '" তালিকায় নেই — অন্য মডেল বেছে নিন'
+        });
+        return;
+      }
+      let friendly = data?.error?.message || ('HTTP ' + resp.status);
+      if (resp.status === 401) friendly = 'Groq API key ভুল বা অবৈধ — console.groq.com/keys থেকে আবার কপি করুন';
+      else if (resp.status === 429) friendly = 'রেট লিমিট — কিছুক্ষণ পর আবার পরীক্ষা করুন';
+      sendJson(res, 400, { ok: false, error: friendly });
+    }
+  } catch (e) {
+    sendJson(res, 502, { ok: false, error: 'AI সার্ভারের সাথে যোগাযোগ হয়নি (ইন্টারনেট সংযোগ?) — ' + (e.message || e) });
+  }
+}
+
+function runNextAi() {
+  if (aiState.running || !aiQueue.length) {
+    saveAiStatus();
+    return;
+  }
+  // OCR চলাকালীন একই ডেটা-ফাইলে লিখলে কনফ্লিক্ট হবে — অপেক্ষা করি
+  if (ocrState.running) {
+    setTimeout(runNextAi, 10000);
+    return;
+  }
+  const pdf = aiQueue.shift();
+  const cfg = readAiConfig();
+  if (!cfg.api_key) {
+    aiState.log = [...aiState.log, '✗ API key নেই — ai-config.json এ key দিন'].slice(-40);
+    aiState.lastResult = { pdf, exitCode: 2 };
+    saveAiStatus();
+    return;
+  }
+  aiState.running = true;
+  aiState.current = pdf;
+  aiState.log = [];
+  aiState.lastResult = null;
+  saveAiStatus();
+
+  const child = spawn(process.execPath, ['tools/ai-extract-voters.mjs', pdf, '--save'], {
+    cwd: ROOT,
+    env: { ...process.env, AI_PROVIDER: cfg.provider || 'groq', AI_API_KEY: cfg.api_key || '', AI_MODEL: cfg.model || '' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  child.stdout.on('data', (d) => {
+    const lines = String(d).split('\n').filter(Boolean);
+    aiState.log = [...aiState.log, ...lines].slice(-40);
+    saveAiStatus();
+  });
+  child.stderr.on('data', (d) => {
+    const lines = [...aiState.log, ...String(d).split('\n').filter(Boolean)];
+    aiState.log = lines.slice(-40);
+    saveAiStatus();
+  });
+  child.on('exit', (code) => {
+    aiState.running = false;
+    aiState.done += 1;
+    aiState.lastResult = { pdf, exitCode: code };
+    if (code === 0) aiState.log.push('✓ সম্পন্ন: ' + pdf);
+    else if (code === 2) aiState.log.push('✗ API key নেই — অ্যাডমিন প্যানেলে key সেভ করে আবার চালান');
+    else if (code === 3) aiState.log.push('✗ AI কল ব্যর্থ (কোটা/নেটওয়ার্ক) — পরে আবার চেষ্টা করুন');
+    else aiState.log.push('✗ ব্যর্থ (' + code + '): ' + pdf);
+    aiState.current = null;
+    saveAiStatus();
+    setTimeout(runNextAi, 1000);
+  });
+}
+
+function handleAiExtract(req, res) {
+  readBody(req, (raw) => {
+    try {
+      const { pdf, force } = JSON.parse(raw || '{}');
+      if (!pdf || !String(pdf).startsWith('pdfs/') || !fs.existsSync(path.join(ROOT, String(pdf)))) {
+        return sendJson(res, 400, { ok: false, error: 'ভুল PDF পাথ' });
+      }
+      const cfg = readAiConfig();
+      if (!cfg.api_key) {
+        return sendJson(res, 400, { ok: false, error: 'আগে Gemini API key সেভ করুন (উপরের ঘরে)' });
+      }
+      // duplicate সুরক্ষা — আগে AI/OCR-এ পড়া হলে আর হয় না (force দিলে হয়)
+      const entriesDb = readVoterEntriesDb();
+      if (Object.prototype.hasOwnProperty.call(entriesDb, pdf) && !force) {
+        const n = Array.isArray(entriesDb[pdf]) ? entriesDb[pdf].length : 0;
+        return sendJson(res, 409, { ok: false, duplicate: true, error: `এই PDF আগেই পড়া হয়েছে (${n} জন) — আবার পড়তে "আবার" বাটনে চাপুন` });
+      }
+      if (aiQueue.includes(pdf) || (aiState.running && aiState.current === pdf)) {
+        return sendJson(res, 409, { ok: false, error: 'এই PDF ইতিমধ্যে কিউতে আছে' });
+      }
+      aiQueue.push(pdf);
+      aiState.total += 1;
+      saveAiStatus();
+      runNextAi();
+      sendJson(res, 200, { ok: true, queued: true });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+function handleAiQueue(req, res) {
+  // শুধু যেগুলো এখনো পড়া হয়নি সেগুলোই কিউতে যায়
+  try {
+    const entriesDb = readVoterEntriesDb();
+    const files = fs.readdirSync(path.join(ROOT, 'pdfs'))
+      .filter(f => f.endsWith('.pdf'))
+      .sort()
+      .map(f => 'pdfs/' + f);
+    const pending = files.filter(f => !Object.prototype.hasOwnProperty.call(entriesDb, f));
+    let added = 0;
+    for (const f of pending) {
+      if (aiQueue.includes(f) || (aiState.running && aiState.current === f)) continue;
+      aiQueue.push(f);
+      added++;
+    }
+    aiState.total += added;
+    saveAiStatus();
+    runNextAi();
+    sendJson(res, 200, { ok: true, added, queued: aiQueue.length, running: aiState.running });
+  } catch (e) {
+    sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+function handleAiStatus(req, res) {
+  const entriesDb = readVoterEntriesDb();
+  let processedPdfs = 0;
+  let processedVoters = 0;
+  for (const [k, v] of Object.entries(entriesDb)) {
+    if (!k.startsWith('pdfs/')) continue;
+    processedPdfs++;
+    if (Array.isArray(v)) processedVoters += v.length;
+  }
+  const cfg = readAiConfig();
+  sendJson(res, 200, {
+    ok: true,
+    state: { ...aiState, queued: aiQueue.length },
+    processed: { pdfs: processedPdfs, voters: processedVoters },
+    has_key: Boolean(cfg.api_key),
+    key_masked: maskKey(cfg.api_key),
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
+    model: cfg.model || (cfg.provider === 'gemini' ? 'gemini-2.5-flash' : 'meta-llama/llama-4-scout-8b-17e-instruct')
+  });
+}
+
+/* ==========================================================================
+   সার্চ-টাইম AI খোঁজা — "PDF গুলো পড়ে ব্যক্তি খুঁজে দাও"
+   ==========================================================================
+   POST /api/ai-find         { query } — পুরো পাবলিক (সাইটের ইউজাররা চালায়)
+   GET  /api/ai-find-status  — লাইভ প্রগ্রেস + পাওয়া রেকর্ড
+   POST /api/ai-find-cancel  — চলমান খোঁজা বন্ধ
+   আসল কাজ করে tools/ai-find-person.mjs (চাইল্ড প্রসেস);
+   প্রগ্রেস .ai-find-state.json ফাইলে লাইভ লেখে।
+   ========================================================================== */
+
+const AI_FIND_STATE_FILE = path.join(ROOT, '.ai-find-state.json');
+const findJob = { running: false, child: null, query: '', startedAt: 0, log: [] };
+
+function readFindState() {
+  try { return JSON.parse(fs.readFileSync(AI_FIND_STATE_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function writeFindState(patch) {
+  try {
+    fs.writeFileSync(AI_FIND_STATE_FILE, JSON.stringify({ ...readFindState(), ...patch }));
+  } catch (e) {}
+}
+
+function handleAiFind(req, res) {
+  readBody(req, (raw) => {
+    try {
+      const { query } = JSON.parse(raw || '{}');
+      const q = String(query || '').trim();
+      if (q.length < 2) {
+        return sendJson(res, 400, { ok: false, error: 'অন্তত ২ অক্ষরের কিছু লিখুন' });
+      }
+      if (findJob.running) {
+        return sendJson(res, 409, { ok: false, error: 'আগের AI-খোঁজা এখনো চলছে — একটু অপেক্ষা করুন বা বন্ধ করুন' });
+      }
+      const cfg = readAiConfig();
+      if (!cfg.api_key) {
+        return sendJson(res, 400, { ok: false, error: 'AI সেটআপ নেই — অ্যাডমিন প্যানেলে API key সেভ করুন' });
+      }
+      findJob.running = true;
+      findJob.query = q;
+      findJob.startedAt = Date.now();
+      findJob.log = [];
+      writeFindState({ query: q, running: true, done: false, canceled: false, error: null, found: [], scanned: 0, startedAt: Date.now(), cancel: false });
+
+      const child = spawn(process.execPath, ['tools/ai-find-person.mjs', q], {
+        cwd: ROOT,
+        env: { ...process.env, AI_PROVIDER: cfg.provider || 'groq', AI_API_KEY: cfg.api_key || '', AI_MODEL: cfg.model || '' },
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      findJob.child = child;
+      const pushLog = (d) => {
+        findJob.log = [...findJob.log, ...String(d).split('\n').filter(Boolean)].slice(-30);
+      };
+      child.stdout.on('data', pushLog);
+      child.stderr.on('data', pushLog);
+      child.on('exit', (code) => {
+        findJob.running = false;
+        findJob.child = null;
+        writeFindState({ running: false, done: true });
+        console.log(`[AI-Find] শেষ (${code}): "${q}"`);
+      });
+      console.log(`[AI-Find] শুরু: "${q}"`);
+      sendJson(res, 200, { ok: true, started: true });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+  });
+}
+
+function handleAiFindStatus(req, res) {
+  const st = readFindState();
+  const cfg = readAiConfig();
+  sendJson(res, 200, {
+    ok: true,
+    running: findJob.running,
+    query: st.query || findJob.query || '',
+    provider: cfg.provider === 'gemini' ? 'gemini' : 'groq',
+    has_key: Boolean(cfg.api_key),
+    progress: {
+      scanned: st.scanned || 0,
+      total: st.total || 0,
+      currentPdf: st.currentPdf || null
+    },
+    found: st.found || [],
+    done: st.done || false,
+    canceled: Boolean(st.canceled),
+    error: st.error || null,
+    log: findJob.log.slice(-6)
+  });
+}
+
+function handleAiFindCancel(req, res) {
+  if (findJob.running && findJob.child) {
+    writeFindState({ cancel: true });
+    findJob.child.kill('SIGTERM');
+    sendJson(res, 200, { ok: true, canceled: true });
+  } else {
+    sendJson(res, 200, { ok: true, canceled: false, message: 'কোনো খোঁজা চলছে না' });
+  }
 }
 
 function handlePdfNames(req, res) {
