@@ -466,22 +466,36 @@
 
         <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
 
-        <h4 style="font-size:1rem; color: #7c3aed; margin-bottom: 10px;">🤖 অটো নাম পড়ুন (OCR) — হাতে নাম লেখা লাগবে না!</h4>
+        <h4 style="font-size:1rem; color: #0891b2; margin-bottom: 10px;">🤖 AI দিয়ে পড়ুন (Google Gemini) — নতুন সিস্টেম, প্রায় নিখুঁত!</h4>
 
-        <div class="bulk-help" style="border-left-color: #7c3aed;">
-          <b>এক ক্লিকে PDF থেকে সব নাম পড়বে:</b> মেশিন PDF-এর প্রতিটি পেজ ছবি বানিয়ে বাংলা OCR দিয়ে নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব পড়ে ওয়েবসাইটে সেভ করবে। তখন নাম লিখলেই পূর্ণ বিবরণসহ ফলাফল আসবে।<br>
-          <small style="color:var(--text-muted)">প্রতি PDF-এ প্রায় ৩-৫ মিনিট লাগে (৩০০-৪০০ জন থাকে)। ব্যাকগ্রাউন্ডে চলবে — আপনি অন্য কাজ করতে পারবেন। একবার হয়ে গেলে আবার হবে না।</small>
+        <div class="bulk-help" style="border-left-color: #0891b2;">
+          <b>OCR-এর বদলে এখন Google Gemini AI নিজেই পুরো PDF পড়ে</b> নাম, ভোটার নং, পিতা, মাতা, জন্ম তারিখ, ঠিকানা — সব সাজিয়ে সেভ করে দেয়। বাংলা লেখা পড়তে AI অনেক বেশি নিখুঁত, তাই ভুল তথ্য প্রায় থাকে না। প্রতি PDF-এ মাত্র ~১-২ মিনিট লাগে।<br>
+          <small style="color:var(--text-muted)">১. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:#0891b2;">aistudio.google.com</a>-এ গিয়ে <b>ফ্রি</b> API key নিন → ২. নিচের ঘরে key পেস্ট করে <b>সেভ</b> করুন → ৩. নিচের বাটনে চেপে সব PDF পড়িয়ে দিন। ফ্রি কোটায় দিনে ২৫০-১০০০ বার পড়া যায় (মডেলভেদে) — একবার পড়লেই আর লাগে না।</small>
         </div>
 
-        <!-- OCR স্ট্যাটাস টেবিল: কোনটা হয়েছে, কোনটা বাকি — এক নজরে -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px;">
+          <input id="aiApiKey" type="password" placeholder="Gemini API key পেস্ট করুন (AIza... দিয়ে শুরু)" autocomplete="off" style="flex:1; min-width:220px; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
+          <select id="aiModel" style="padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; outline:none;">
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash (সবচেয়ে নিখুঁত)</option>
+            <option value="gemini-2.5-flash-lite">2.5 Flash-Lite (দ্রুত, বেশি কোটা)</option>
+            <option value="gemini-2.0-flash">2.0 Flash (বড় ফ্রি কোটা)</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="btnAiSaveKey" style="background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);">💾 সেভ</button>
+          <button type="button" class="btn btn-secondary" id="btnAiTestKey">✅ পরীক্ষা</button>
+        </div>
+        <div id="aiKeyStatus" style="font-size:0.85rem; font-weight:700; margin-bottom:10px; color:var(--text-muted);"></div>
+
+        <button type="button" class="btn btn-primary btn-block" id="btnAiAll" style="margin-bottom:6px; height:44px; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);">
+          ⚡ বাকি সব PDF AI দিয়ে পড়ুন
+        </button>
+        <div id="aiStatus" style="margin-top:10px; font-size:0.85rem; font-weight:700; white-space:pre-wrap;"></div>
+
+        <hr style="margin: 26px 0; border: none; border-top: 2px dashed var(--border);">
+
+        <h4 style="font-size:1rem; color: #7c3aed; margin-bottom: 10px;">📖 PDF পড়ার অবস্থা — কোনটা হয়েছে, কোনটা বাকি</h4>
+
         <div id="ocrSummary" style="margin:14px 0 10px; padding:12px 14px; border-radius:10px; background:#f5f3ff; border:1.5px solid #ddd6fe; font-size:0.92rem; font-weight:800; color:#5b21b6;">
           লোড হচ্ছে...
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <button type="button" class="btn btn-primary" id="btnOcrAll" style="flex:1; min-width:200px; background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);">
-            ⚡ বাকি সব PDF পড়ুন
-          </button>
         </div>
 
         <div style="overflow-x:auto; border:1.5px solid var(--border); border-radius:10px; max-height:340px; overflow-y:auto;">
@@ -500,12 +514,22 @@
           </table>
         </div>
         <div id="ocrStatus" style="margin-top: 12px; font-size: 0.85rem; font-weight: 700; white-space: pre-wrap;"></div>
+
+        <details style="margin-top:18px;">
+          <summary style="cursor:pointer; font-weight:800; color:#7c3aed; font-size:0.9rem;">🔍 পুরনো OCR (Tesseract) — ব্যাকআপ সিস্টেম</summary>
+          <div class="bulk-help" style="border-left-color: #7c3aed; margin-top:10px;">
+            <b>AI কোনো কারণে কাজ না করলে</b> (key নেই / ইন্টারনেট নেই) তখনই এটি ব্যবহার করুন। প্রতি PDF-এ ৩-৫ মিনিট লাগে এবং বাংলা নামে কিছু ভুল থাকতে পারে।
+          </div>
+          <button type="button" class="btn btn-primary" id="btnOcrAll" style="margin-top:10px; width:100%; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);">
+            ⚡ বাকি সব PDF পড়ুন (OCR)
+          </button>
+        </details>
       </div>
 
       <!-- Manage Section / Show lists -->
       <div class="panel admin-card" style="margin-top:20px;">
         <h3 style="font-size:1.15rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom:8px; margin-bottom:15px;">📊 ডেটাবেজে সংরক্ষিত তালিকার সারসংক্ষেপ</h3>
-        
+
         <div style="display:flex; gap:10px; margin-bottom:15px;">
           <button id="btnViewNidList" class="btn btn-secondary" style="font-size:0.8rem; padding:8px 12px;">🆔 NID তালিকা দেখুন</button>
           <button id="btnViewKhatianList" class="btn btn-secondary" style="font-size:0.8rem; padding:8px 12px;">📄 খতিয়ান তালিকা দেখুন</button>

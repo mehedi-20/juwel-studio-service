@@ -64,9 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           showToast('স্বাগতম অ্যাডমিন! প্যানেলে প্রবেশাধিকার মঞ্জুর করা হয়েছে। ✓');
           initFirebaseConnection();
-          // লগইনের পরই OCR স্ট্যাটাস রিফ্রেশ শুরু (ট্যাব ক্লিকের অপেক্ষা না করে)
+          // লগইনের পরই OCR/AI স্ট্যাটাস রিফ্রেশ শুরু (ট্যাব ক্লিকের অপেক্ষা না করে)
           try { loadPdfList(); } catch (e) {}
           try { pollOcrStatus(); } catch (e) {}
+          try { loadAiConfig(); } catch (e) {}
+          try { pollAiStatus(); } catch (e) {}
         }, 300);
       }
     } else {
@@ -449,11 +451,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalVoters = done.reduce((s, f) => s + (f.voters || 0), 0);
 
     if (summary) {
-      summary.innerHTML = `✅ <b>${done.length}</b> টি PDF-এর OCR সম্পন্ন — মোট <b>${totalVoters}</b> জন ভোটার পড়া হয়েছে<br>⏳ বাকি: <b>${pending.length}</b> টি PDF`;
+      summary.innerHTML = `✅ <b>${done.length}</b> টি PDF পড়া সম্পন্ন — মোট <b>${totalVoters}</b> জন ভোটার সেভ আছে<br>⏳ বাকি: <b>${pending.length}</b> টি PDF (নিচের "AI পড়ুন" বাটনে পড়ান)`;
     }
 
+    const escAttr = (s) => String(s).replace(/'/g, "\\'");
+
     if (!pending.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="padding:16px; text-align:center; color:var(--success); font-weight:700;">🎉 সব PDF-এর OCR হয়ে গেছে!</td></tr>';
+      tbody.innerHTML = done.map(f => `
+        <tr style="border-bottom:1px solid #f1f5f9; opacity:0.75;">
+          <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
+          <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">${f.voters}</td>
+          <td style="padding:7px 10px; text-align:center;"><span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">✅ সম্পন্ন</span></td>
+          <td style="padding:7px 10px; text-align:center;">
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);" title="ভুল তথ্য থাকলে AI দিয়ে আবার পড়ে ঠিক করুন" onclick="startAiPdf('${escAttr(f.pdf)}', true)">🔄 আবার (AI)</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="4" style="padding:16px; text-align:center; color:var(--success); font-weight:700;">🎉 সব PDF-এর পড়া শেষ! ভুল তথ্য থাকলে "আবার (AI)" দিয়ে ঠিক করুন</td></tr>';
       return;
     }
 
@@ -467,8 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
           <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">—</td>
           <td style="padding:7px 10px; text-align:center;"><span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">⏳ বাকি</span></td>
-          <td style="padding:7px 10px; text-align:center;">
-            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#7c3aed 0%,#4c1d95 100%);" onclick="startOcrPdf('${f.pdf.replace(/'/g, "\\'")}')">🤖 পড়ুন</button>
+          <td style="padding:7px 10px; text-align:center; white-space:nowrap;">
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);" onclick="startAiPdf('${escAttr(f.pdf)}')">🤖 AI পড়ুন</button>
+            <button type="button" class="btn" style="padding:5px 8px; font-size:0.7rem; color:var(--text-muted); border:1px solid var(--border);" title="ব্যাকআপ (ধীর, ভুল হতে পারে)" onclick="startOcrPdf('${escAttr(f.pdf)}')">🔍</button>
           </td>
         </tr>`).join('');
 
@@ -478,11 +491,31 @@ document.addEventListener('DOMContentLoaded', () => {
         <td style="padding:7px 10px; font-size:0.75rem; word-break:break-all;">${f.file_name}</td>
         <td style="padding:7px 10px; text-align:center; font-size:0.78rem;">${f.voters}</td>
         <td style="padding:7px 10px; text-align:center;"><span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700;">✅ সম্পন্ন</span></td>
-        <td style="padding:7px 10px; text-align:center; font-size:0.72rem; color:var(--text-muted);">—</td>
+        <td style="padding:7px 10px; text-align:center;">
+          <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg,#0891b2 0%,#0e7490 100%);" title="AI দিয়ে আবার পড়ুন" onclick="startAiPdf('${escAttr(f.pdf)}', true)">🔄 আবার</button>
+        </td>
       </tr>`).join('');
 
     tbody.innerHTML = rows + doneRows;
   }
+
+  // টেবিলের "🤖 AI পড়ুন" বাটন — একটি PDF Google Gemini দিয়ে পড়া
+  window.startAiPdf = async (pdf, force) => {
+    try {
+      const resp = await adminFetch('/api/ai-extract', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdf, force: !!force })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.duplicate) { showToast('⚠️ এই PDF আগেই পড়া হয়েছে — "আবার" বাটনে চাপুন'); return; }
+      if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+      showToast('🤖 AI পড়া শুরু হয়েছে: ' + pdf.split('/').pop());
+      setTimeout(loadPdfList, 3000);
+      pollAiStatus();
+    } catch (e) {
+      showToast('ব্যর্থ: ' + e.message);
+    }
+  };
 
   // টেবিলের "পড়ুন" বাটন — একটি PDF-এর OCR শুরু
   window.startOcrPdf = async (pdf) => {
@@ -539,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // বাল্ক ট্যাব খুললে তালিকা লোড
   if (tabBulkForm) {
     const origBulkClick = tabBulkForm.onclick;
-    tabBulkForm.addEventListener('click', () => { loadPdfList(); pollOcrStatus(); });
+    tabBulkForm.addEventListener('click', () => { loadPdfList(); pollOcrStatus(); pollAiStatus(); loadAiConfig(); });
   }
 
   /* ---------- OCR বাটন + স্ট্যাটাস ---------- */
@@ -610,6 +643,135 @@ document.addEventListener('DOMContentLoaded', () => {
         pollOcrStatus();
       } catch (e) {
         if (ocrStatus) { ocrStatus.style.color = 'var(--accent)'; ocrStatus.textContent = 'ব্যর্থ: ' + e.message; }
+      }
+    });
+  }
+
+  /* ==========================================================================
+     AI (Google Gemini) দিয়ে PDF পড়া — key সেভ/পরীক্ষা + কিউ + স্ট্যাটাস
+     ========================================================================== */
+  const aiApiKeyInput = document.getElementById('aiApiKey');
+  const aiModelSelect = document.getElementById('aiModel');
+  const btnAiSaveKey = document.getElementById('btnAiSaveKey');
+  const btnAiTestKey = document.getElementById('btnAiTestKey');
+  const aiKeyStatus = document.getElementById('aiKeyStatus');
+  const btnAiAll = document.getElementById('btnAiAll');
+  const aiStatus = document.getElementById('aiStatus');
+  let aiPollTimer = null;
+
+  async function loadAiConfig() {
+    try {
+      const resp = await adminFetch('/api/ai-config');
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+      if (aiModelSelect && data.model) aiModelSelect.value = data.model;
+      if (aiKeyStatus) {
+        if (data.has_key) {
+          aiKeyStatus.style.color = '#0e7490';
+          aiKeyStatus.textContent = `🔑 Key সেভ করা আছে: ${data.key_masked} (মডেল: ${data.model})`;
+        } else {
+          aiKeyStatus.style.color = '#b45309';
+          aiKeyStatus.textContent = '⚠️ কোনো API key সেভ করা নেই — aistudio.google.com থেকে ফ্রি key নিয়ে নিচে পেস্ট করুন';
+        }
+      }
+    } catch (e) { /* সার্ভার বন্ধ থাকলে চুপ থাকি */ }
+  }
+
+  if (btnAiSaveKey) {
+    btnAiSaveKey.addEventListener('click', async () => {
+      try {
+        const body = { model: aiModelSelect ? aiModelSelect.value : undefined };
+        if (aiApiKeyInput && aiApiKeyInput.value.trim()) body.api_key = aiApiKeyInput.value.trim();
+        const resp = await adminFetch('/api/ai-config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+        if (aiApiKeyInput) aiApiKeyInput.value = '';
+        if (aiKeyStatus) {
+          aiKeyStatus.style.color = data.has_key ? 'var(--success)' : '#b45309';
+          aiKeyStatus.textContent = data.has_key
+            ? '✓ সেভ হয়েছে: ' + data.key_masked
+            : '⚠️ key এখনো নেই — ঘরে key পেস্ট করে আবার সেভ করুন';
+        }
+        showToast('AI সেটিং সেভ হয়েছে ✓');
+      } catch (e) {
+        if (aiKeyStatus) { aiKeyStatus.style.color = 'var(--accent)'; aiKeyStatus.textContent = 'সেভ ব্যর্থ: ' + e.message; }
+      }
+    });
+  }
+
+  if (btnAiTestKey) {
+    btnAiTestKey.addEventListener('click', async () => {
+      if (aiKeyStatus) { aiKeyStatus.style.color = '#0e7490'; aiKeyStatus.textContent = '⏳ পরীক্ষা চলছে...'; }
+      try {
+        const resp = await adminFetch('/api/ai-test', { method: 'POST' });
+        const data = await resp.json().catch(() => ({}));
+        if (aiKeyStatus) {
+          if (resp.ok && data.ok) {
+            aiKeyStatus.style.color = 'var(--success)';
+            aiKeyStatus.textContent = data.message || '✓ Key কাজ করছে';
+          } else {
+            aiKeyStatus.style.color = 'var(--accent)';
+            aiKeyStatus.textContent = '✗ ' + (data.error || 'HTTP ' + resp.status);
+          }
+        }
+      } catch (e) {
+        if (aiKeyStatus) { aiKeyStatus.style.color = 'var(--accent)'; aiKeyStatus.textContent = 'পরীক্ষা ব্যর্থ: ' + e.message; }
+      }
+    });
+  }
+
+  function pollAiStatus() {
+    adminFetch('/api/ai-status').then(r => r.json()).then(data => {
+      if (!aiStatus) return;
+      const st = data.state || {};
+      let msg = '';
+      if (!data.has_key) {
+        msg = '⚠️ আগে উপরে Gemini API key সেভ করুন';
+        aiStatus.style.color = '#b45309';
+      } else if (st.running && st.current) {
+        msg = '🤖 AI পড়ছে: ' + st.current.split('/').pop() + '\n' + (st.log || []).slice(-4).join('\n');
+        aiStatus.style.color = '#0e7490';
+      } else if ((st.queued || 0) > 0) {
+        msg = '⏳ কিউতে ' + st.queued + ' টি PDF অপেক্ষায়...';
+        aiStatus.style.color = '#b45309';
+      } else if (st.lastResult) {
+        msg = (st.lastResult.exitCode === 0 ? '✓ শেষ হয়েছে: ' : '✗ ব্যর্থ: ') + (st.lastResult.pdf || '').split('/').pop()
+          + '\n' + ((st.log || []).slice(-3).join('\n'));
+        aiStatus.style.color = st.lastResult.exitCode === 0 ? 'var(--success)' : 'var(--accent)';
+      } else {
+        msg = 'কিউ খালি — উপরের বাটনে চেপে সব PDF পড়িয়ে দিন';
+        aiStatus.style.color = 'var(--text-muted)';
+      }
+      aiStatus.textContent = msg;
+
+      const busy = st.running || (st.queued || 0) > 0;
+      clearTimeout(aiPollTimer);
+      if (busy) aiPollTimer = setTimeout(pollAiStatus, 5000);
+    }).catch(() => {});
+  }
+
+  if (btnAiAll) {
+    btnAiAll.addEventListener('click', async () => {
+      try {
+        const cfgResp = await adminFetch('/api/ai-config');
+        const cfg = await cfgResp.json().catch(() => ({}));
+        if (!cfg.has_key) {
+          showToast('⚠️ আগে Gemini API key সেভ করুন');
+          if (aiStatus) { aiStatus.style.color = '#b45309'; aiStatus.textContent = '⚠️ আগে উপরে API key দিয়ে সেভ করুন'; }
+          return;
+        }
+        if (!confirm('বাকি সব PDF Google Gemini AI দিয়ে পড়া হবে (প্রতি PDF-এ ~১-২ মিনিট, ফ্রি কোটা ব্যবহার হবে)। চালাবেন?')) return;
+        const resp = await adminFetch('/api/ai-queue', { method: 'POST' });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+        if (aiStatus) { aiStatus.style.color = '#0e7490'; aiStatus.textContent = '🤖 ' + data.added + ' টি PDF কিউতে যোগ হয়েছে — একে একে AI পড়বে'; }
+        showToast('AI দিয়ে পড়া শুরু ✓');
+        pollAiStatus();
+      } catch (e) {
+        if (aiStatus) { aiStatus.style.color = 'var(--accent)'; aiStatus.textContent = 'ব্যর্থ: ' + e.message; }
       }
     });
   }
